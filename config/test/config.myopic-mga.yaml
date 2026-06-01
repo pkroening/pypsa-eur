@@ -1,0 +1,23 @@
+run:
+  name: "myopic-mga-test"
+
+foresight: "myopic"
+
+scenario:
+  clusters:
+  - 1
+  planning_horizons:
+  - 2025
+  - 2035
+  - 2045
+  slack:
+  - 0.1
+
+near_opt:
+  weights:
+    varying:
+      Link:
+        p:
+          "H2 Electrolysis": 1
+  slack_initial_fraction: 0.75
+  obj_bound_scaling_factor: 1e-3
