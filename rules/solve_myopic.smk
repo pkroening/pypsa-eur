@@ -143,3 +143,34 @@ rule solve_sector_network_myopic:
         "Solving sector-coupled network with myopic foresight for {wildcards.clusters} clusters, {wildcards.planning_horizons} planning horizons, {wildcards.opts} electric options and {wildcards.sector_opts} sector options"
     script:
         scripts("solve_network.py")
+
+rule near_opt_myopic:
+    input:
+        network=RESULTS
+        + "prenetworks-brownfield/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
+        network_opt=RESULTS
+        + "postnetworks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+    output:
+        RESULTS
+        + "postnetworks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
+    log:
+        solver=logs("near_opt_myopic/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_solver.log"),
+        memory=logs("near_opt_myopic/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_memory.log"),
+        python=logs("near_opt_myopic/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_python.log"),
+    benchmark:
+        benchmarks("solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}")
+    shadow:
+        shadow_config
+    threads: solver_threads
+    resources:
+        mem_mb=config_provider("solving", "mem_mb"),
+        runtime=config_provider("solving", "runtime", default="3d"),
+    params:
+        solving=config_provider("solving"),
+        near_opt=config_provider("near_opt"),
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        sector=config_provider("sector"),
+        build_year_agg=config_provider("clustering", "build_year_aggregation"),
+        custom_extra_functionality=input_custom_extra_functionality,
+    script:
+        scripts("near_opt_myopic.py")

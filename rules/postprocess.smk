@@ -410,6 +410,92 @@ rule make_global_summary:
     script:
         scripts("make_global_summary.py")
 
+rule make_summary_near_opt:
+    input:
+        networks=expand(
+            RESULTS
+            + "postnetworks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
+            **config["scenario"],
+            sense=["min", "max"],
+            allow_missing=True,
+        ),
+        costs=lambda w: (
+            resources("costs_{}.csv".format(config_provider("costs", "year")(w)))
+            if config_provider("foresight")(w) == "overnight"
+            else resources(
+                "costs_{}.csv".format(
+                    config_provider("scenario", "planning_horizons", 0)(w)
+                )
+            )
+        ),
+        ac_plot=expand(
+            resources("maps/power-network-s-{clusters}.pdf"),
+            **config["scenario"],
+            allow_missing=True,
+        ),
+        costs_plot=expand(
+            RESULTS
+            + "maps/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}_{sense}{slack}.pdf",
+            **config["scenario"],
+            sense=["min", "max"],
+            allow_missing=True,
+        ),
+        h2_plot=lambda w: expand(
+            (
+                RESULTS
+                + "maps/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}_{sense}{slack}.pdf"
+                if config_provider("sector", "H2_network")(w)
+                else []
+            ),
+            **config["scenario"],
+            sense=["min", "max"],
+            allow_missing=True,
+        ),
+        ch4_plot=lambda w: expand(
+            (
+                RESULTS
+                + "maps/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}_{sense}{slack}.pdf"
+                if config_provider("sector", "gas_network")(w)
+                else []
+            ),
+            **config["scenario"],
+            sense=["min", "max"],
+            allow_missing=True,
+        ),
+    output:
+        nodal_costs=RESULTS + "csvs_near_opt/nodal_costs.csv",
+        nodal_capacities=RESULTS + "csvs_near_opt/nodal_capacities.csv",
+        nodal_cfs=RESULTS + "csvs_near_opt/nodal_cfs.csv",
+        cfs=RESULTS + "csvs_near_opt/cfs.csv",
+        costs=RESULTS + "csvs_near_opt/costs.csv",
+        capacities=RESULTS + "csvs_near_opt/capacities.csv",
+        curtailment=RESULTS + "csvs_near_opt/curtailment.csv",
+        energy=RESULTS + "csvs_near_opt/energy.csv",
+        supply=RESULTS + "csvs_near_opt/supply.csv",
+        supply_energy=RESULTS + "csvs_near_opt/supply_energy.csv",
+        nodal_supply_energy=RESULTS + "csvs_near_opt/nodal_supply_energy.csv",
+        prices=RESULTS + "csvs_near_opt/prices.csv",
+        weighted_prices=RESULTS + "csvs_near_opt/weighted_prices.csv",
+        market_values=RESULTS + "csvs_near_opt/market_values.csv",
+        price_statistics=RESULTS + "csvs_near_opt/price_statistics.csv",
+        metrics=RESULTS + "csvs_near_opt/metrics.csv",
+    log:
+        logs("make_summary_near_opt.log"),
+    threads: 2
+    resources:
+        mem_mb=10000,
+    localrule: True
+    params:
+        foresight=config_provider("foresight"),
+        costs=config_provider("costs"),
+        snapshots=config_provider("snapshots"),
+        drop_leap_day=config_provider("enable", "drop_leap_day"),
+        scenario=config_provider("scenario"),
+        RDIR=RDIR,
+    message:
+        "Creating global summary of near optimal optimization results"
+    script:
+        scripts("make_summary_near_opt.py")
 
 rule make_cumulative_costs:
     input:
@@ -461,6 +547,47 @@ rule plot_summary:
     script:
         scripts("plot_summary.py")
 
+rule plot_summary_near_opt:
+    input:
+        costs=RESULTS + "csvs_near_opt/costs.csv",
+        energy=RESULTS + "csvs_near_opt/energy.csv",
+        balances=RESULTS + "csvs_near_opt/supply_energy.csv",
+        eurostat="data/eurostat/eurostat-energy_balances-april_2023_edition",
+        co2="data/bundle/eea/UNFCCC_v23.csv",
+    output:
+        costs=RESULTS + "graphs_near_opt/costs.svg",
+        energy=RESULTS + "graphs_near_opt/energy.svg",
+        balances=RESULTS + "graphs_near_opt/balances-energy.svg",
+    threads: 2
+    resources:
+        mem_mb=10000,
+    localrule: True
+    params:
+        countries=config_provider("countries"),
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        emissions_scope=config_provider("energy", "emissions"),
+        plotting=config_provider("plotting"),
+        foresight=config_provider("foresight"),
+        co2_budget=config_provider("co2_budget"),
+        sector=config_provider("sector"),
+        RDIR=RDIR,
+    log:
+        RESULTS
+        + "logs/plot_summary_near_opt.log",
+    script:
+        scripts("plot_summary_near_opt.py")
+
+
+rule make_all_summaries:
+    input:
+        expand(RESULTS + "csvs/costs.csv", run=config["run"]["name"]),
+        expand(RESULTS + "csvs_near_opt/costs.csv", run=config["run"]["name"]),
+
+
+rule plot_all_summaries:
+    input:
+        expand(RESULTS + "graphs/costs.svg", run=config["run"]["name"]),
+        expand(RESULTS + "graphs_near_opt/costs.svg", run=config["run"]["name"]),
 
 rule plot_balance_timeseries:
     input:
