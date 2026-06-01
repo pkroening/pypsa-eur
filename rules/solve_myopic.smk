@@ -121,17 +121,11 @@ rule solve_sector_network_myopic:
             else []
         ),
     log:
-        solver=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_solver.log",
-        memory=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_memory.log",
-        python=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_python.log",
+        solver=logs("base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_solver.log"),
+        memory=logs("base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_memory.log"),
+        python=logs("base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_python.log"),
     benchmark:
-        (
-            RESULTS
-            + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
-        )
+        benchmarks("solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}")
     shadow:
         shadow_config
     threads: solver_threads
