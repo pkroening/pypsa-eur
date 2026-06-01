@@ -92,7 +92,7 @@ if "slack" in config["scenario"]:
         input:
             expand(
                 RESULTS
-                + "postnetworks/base_s_{clusters}_{opts}_{sector_opts}_"
+                + "networks/base_s_{clusters}_{opts}_{sector_opts}_"
                 + str(config["scenario"]["planning_horizons"][-1])
                 + "_{sense}{slack}.nc",
                 **config["scenario"],

@@ -214,6 +214,19 @@ def solved_previous_horizon(w):
         + ".nc"
     )
 
+def solved_previous_horizon_myopic_mga(w):
+    planning_horizons = config_provider("scenario", "planning_horizons")(w)
+    i = planning_horizons.index(int(w.planning_horizons))
+    planning_horizon_p = str(planning_horizons[i - 1])
+
+    return (
+        RESULTS
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_"
+        + planning_horizon_p
+        + w.near_opt
+        + ".nc"
+    )
+
 
 def input_cutout(wildcards, cutout_names="default"):
 
