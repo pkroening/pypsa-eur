@@ -5,7 +5,7 @@ foresight: "myopic"
 
 scenario:
   clusters:
-  - 1
+  - 39
   planning_horizons:
   - 2025
   - 2035
@@ -21,3 +21,6 @@ near_opt:
           "H2 Electrolysis": 1
   slack_initial_fraction: 0.75
   obj_bound_scaling_factor: 1e-3
+
+countries:
+- DE
