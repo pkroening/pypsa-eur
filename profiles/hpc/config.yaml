@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Contributors to PyPSA-Eur <https://github.com/pypsa/pypsa-eur>
+#
+# SPDX-License-Identifier: MIT
+
+# See https://snakemake.readthedocs.io/en/stable/executing/cli.html#profiles
+
+logger: pypsa
+
+# RWTH HPC uses the slurm job submission system
+# for details on how to configure the respective executor plugin for snakemake, see
+# https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html
+executor: slurm
+slurm-jobname-prefix: pypsa
+# This cluster allows users to run 80 jobs concurrently.
+# https://help.itc.rwth-aachen.de/service/rhr4fjjutttf/article/d99e9f242bdb48eaa1c63c45e84fc32f/
+jobs: 80
+# This cluster allows the use of 96 cores per node?
+cores: 96
+# If a rule doesn't have the following resources specified, it will default to requesting the resources specified here.
+default-resources:
+  slurm_partition: c23mm
+  slurm_account: default
+  runtime: 15 # min
+  mem_mb_per_cpu: 5210
+  # cpus_per_task: 1
+  # tasks: 1
+  # nodes: 1
+
+# Partitions of the HPC:
+slurm-partition-config: partitions.yaml
+
+# Go on with independent jobs if a job fails during execution
+keep-going: true
+
+
