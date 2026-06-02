@@ -21,26 +21,26 @@ partitions:
     max_mem_mb_per_cpu: 10560
     max_runtime: 30-00:00:00
     max_threads: 96
-  c23ml_low:
-    max_mem_mb_per_cpu: 10560
-    max_runtime: 30-00:00:00
-    max_threads: 96
+  # c23ml_low:
+  #   max_mem_mb_per_cpu: 10560
+  #   max_runtime: 30-00:00:00
+  #   max_threads: 96
   c23mm:
     max_mem_mb_per_cpu: 5210
     max_runtime: 30-00:00:00
     max_threads: 96
-  c23mm_low:
-    max_mem_mb_per_cpu: 5210
-    max_runtime: 30-00:00:00
-    max_threads: 96
+  # c23mm_low:
+  #   max_mem_mb_per_cpu: 5210
+  #   max_runtime: 30-00:00:00
+  #   max_threads: 96
   c23ms:
     max_mem_mb_per_cpu: 2540
     max_runtime: 30-00:00:00
     max_threads: 96
-  c23ms_low:
-    max_mem_mb_per_cpu: 2540
-    max_runtime: 30-00:00:00
-    max_threads: 96
+  # c23ms_low:
+  #   max_mem_mb_per_cpu: 2540
+  #   max_runtime: 30-00:00:00
+  #   max_threads: 96
   # c25g:
   #   max_gpu: 116
   #   max_mem_mb_per_cpu: 5960
