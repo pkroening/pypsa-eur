@@ -32,7 +32,7 @@ max-status-checks-per-second: 0.5
 # Fault tolerance
 # ---------------------------------------------------------------------------
 # Retry each failed job.
-retries: 1
+retries: 0
 
 # Wait up to 5 s for output files to appear on the shared file system after
 # a job finishes (takes possible metadata latency into account).
@@ -41,23 +41,14 @@ latency-wait: 5
 # Keep going with independent jobs even if some jobs fail.
 keep-going: True
 
-
-# Partitions of the HPC:
-slurm-partition-config: partitions.yaml
 default-resources:
-  # slurm_partition: c23ms
   slurm_account: "default"
-
-  # runtime
-  # Usually not needed if the cluster's settings define a default runtime for jobs.
-  # This value is first parsed bySnakemake itself, then converted to a SLURM-friendly
-  # string by the snakemake-executor-slurm-plugin.
-  # This means you have to use a string that is parsable by Snakemake (e.g. the usual 2:00:00 = 2h)
-  # does not work
-  runtime: 30min
-
-  # CPUs per task (cpus-per-task is equivalent to threads in Snakemake).
+  runtime: 15min
   threads: 1
+  mem_mb: 2540
+
+# Partitions of claix
+slurm-partition-config: partitions.yaml
 
 # ---------------------------------------------------------------------------
 # Storage related settings
