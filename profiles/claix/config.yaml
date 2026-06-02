@@ -45,7 +45,8 @@ keep-going: True
 # Partitions of the HPC:
 slurm-partition-config: partitions.yaml
 default-resources:
-  slurm_account: default
+  # slurm_partition: c23ms
+  slurm_account: "default"
 
   # runtime
   # Usually not needed if the cluster's settings define a default runtime for jobs.
@@ -74,9 +75,10 @@ default-resources:
 # Slurm-specific submission options (passed via --slurm-* flags or embedded
 # in the job script).
 # ---------------------------------------------------------------------------
-# slurm-logdir: "/home/$USER/.snakemake/slurm_logs"
+slurm-logdir: "/home/$USER/.snakemake/slurm_logs"
 slurm-keep-successful-logs: False
-# slurm-efficiency-report: True
+slurm-efficiency-report: True
+slurm-efficiency-report-path: "/home/$USER/.snakemake/slurm_eff_reports"
 
 # ---------------------------------------------------------------------------
 # Rerun behaviour
