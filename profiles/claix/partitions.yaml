@@ -1,80 +1,17 @@
 # https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html#automatic-partition-selection
 
 partitions:
-  # c23g:
-  #   max_gpu: 200
-  #   max_mem_mb_per_cpu: 5200
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 96
-  # c23g_low:
-  #   max_gpu: 200
-  #   max_mem_mb_per_cpu: 5200
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 96
-  # c23i:
-  #   max_gpu: 28
-  #   max_mem_mb_per_cpu: 5200
-  #   max_nodes: 1
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 96
-  c23ml:
-    max_mem_mb_per_cpu: 10560
-    max_runtime: 30-00:00:00
+  # https://help.itc.rwth-aachen.de/service/rhr4fjjutttf/article/9108f4a6f43c40a3a168919afd36839d/
+  c23ms:
+    max_mem_mb_per_cpu: 2540
+    max_runtime: 00-12:00:00
     max_threads: 96
-  # c23ml_low:
+  c23mm:
+    max_mem_mb_per_cpu: 5210
+    max_runtime: 00-12:00:00
+    max_threads: 96
+  # To few nodes -> long waiting time
+  # c23ml:
   #   max_mem_mb_per_cpu: 10560
   #   max_runtime: 30-00:00:00
   #   max_threads: 96
-  c23mm:
-    max_mem_mb_per_cpu: 5210
-    max_runtime: 30-00:00:00
-    max_threads: 96
-  # c23mm_low:
-  #   max_mem_mb_per_cpu: 5210
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 96
-  c23ms:
-    max_mem_mb_per_cpu: 2540
-    max_runtime: 30-00:00:00
-    max_threads: 96
-  # c23ms_low:
-  #   max_mem_mb_per_cpu: 2540
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 96
-  # c25g:
-  #   max_gpu: 116
-  #   max_mem_mb_per_cpu: 5960
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 128
-  # c25ih:
-  #   max_mem_mb_per_cpu: 1940
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 192
-  # c25ml:
-  #   max_mem_mb_per_cpu: 3960
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 192
-  # c25ms:
-  #   max_mem_mb_per_cpu: 1940
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 192
-  # c25test:
-  #   max_mem_mb_per_cpu: 1940
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 192
-  # devel:
-  #   max_mem_mb_per_cpu: 975
-  #   max_runtime: 01:00:00
-  #   max_threads: 96
-  # devel_low:
-  #   max_mem_mb_per_cpu: 975
-  #   max_runtime: 01:00:00
-  #   max_threads: 96
-  # optane:
-  #   max_mem_mb_per_cpu: 31125
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 64
-  # optane_low:
-  #   max_mem_mb_per_cpu: 31125
-  #   max_runtime: 30-00:00:00
-  #   max_threads: 64
