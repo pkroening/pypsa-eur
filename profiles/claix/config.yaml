@@ -84,5 +84,5 @@ rerun-incomplete: True
 # ---------------------------------------------------------------------------
 # Reporting / verbosity
 # ---------------------------------------------------------------------------
-printshellcmds: True
-show-failed-logs: True
+printshellcmds: False
+show-failed-logs: False
