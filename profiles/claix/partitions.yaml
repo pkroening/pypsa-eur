@@ -1,0 +1,17 @@
+# https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html#automatic-partition-selection
+
+partitions:
+  # https://help.itc.rwth-aachen.de/service/rhr4fjjutttf/article/9108f4a6f43c40a3a168919afd36839d/
+  c23ms:
+    max_mem_mb_per_cpu: 2540
+    max_runtime: 00-12:00:00
+    max_threads: 96
+  c23mm:
+    max_mem_mb_per_cpu: 5210
+    max_runtime: 00-12:00:00
+    max_threads: 96
+  # To few nodes -> long waiting time
+  # c23ml:
+  #   max_mem_mb_per_cpu: 10560
+  #   max_runtime: 30-00:00:00
+  #   max_threads: 96
