@@ -59,10 +59,6 @@ default-resources:
   # CPUs per task (cpus-per-task is equivalent to threads in Snakemake).
   threads: 1
 
-  # Memory in MB per node.
-  # rules needing more must declare resources: mem_mb=<value>
-  mem_mb: 2540
-
 # ---------------------------------------------------------------------------
 # Storage related settings
 # These may be overwritten with specific file access patterns.
