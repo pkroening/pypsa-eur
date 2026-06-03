@@ -83,61 +83,7 @@ show-failed-logs: False
 # Rulespecific resources on claix
 # ---------------------------------------------------------------------------
 set-resources:
-  # oom
-  build_eurostat_balances:
-    localrule: true
-  build_biomass_potentials:
-    localrule: true
-  build_biomass_transport_costs:
-    localrule: true
-  build_district_heat_share:
-    localrule: true
-  build_industry_sector_ratios:
-    localrule: true
-  build_ammonia_production:
-    localrule: true
-  build_industrial_production_per_country:
-    localrule: true
-  build_industrial_production_per_country_tomorrow:
-    localrule: true
-  build_industrial_energy_demand_per_country_today:
-    localrule: true
-  build_industry_sector_ratios_intermediate:
-    localrule: true
-  build_industrial_distribution_key:
-    localrule: true
-
-  build_river_heat_potential:
-    localrule: true
-  # just low CPU efficiency
-  add_electricity:
-    localrule: true
-  prepare_network:
-    localrule: true
-  time_aggregation:
-    localrule: true
-
-  build_population_weighted_energy_totals:
-    localrule: true
-  build_district_heat_share:
-    localrule: true
-  build_renewable_profiles:
-    localrule: true
-  build_hourly_heat_demand:
-    localrule: true
-  build_central_heating_temperature_profiles:
-    localrule: true
-  build_river_heat_potential:
-    localrule: true
-  build_clustered_solar_rooftop_potentials:
-    localrule: true
-  build_ates_potentials:
-    localrule: true
-  build_direct_heat_source_utilisation_profiles:
-    localrule: true
-  build_ptes_operations_wildcards:
-    localrule: true
-  build_direct_heat_source_utilisation_profiles:
-    localrule: true
-  build_ates_potentials:
-    localrule: true
+  solve_sector_network_myopic:
+    slurm_partition: c23mm
+  near_opt_myopic:
+    slurm_partition: c23mm
