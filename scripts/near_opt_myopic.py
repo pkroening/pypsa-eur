@@ -15,8 +15,6 @@ from linopy import LinearExpression, QuadraticExpression, merge
 from prepare_sector_network import set_temporal_aggregation
 from pypsa.descriptors import nominal_attrs
 from solve_network import (
-    aggregate_build_years,
-    disaggregate_build_years,
     extra_functionality,
     prepare_network,
 )
@@ -210,7 +208,6 @@ def near_opt(
     params,
     solving,
     near_opt_config,
-    build_year_agg,
     current_horizon,
     sense,
     cost_bound,
@@ -220,14 +217,6 @@ def near_opt(
 
     n.config = config
     n.params = params
-
-    build_year_agg_enabled = build_year_agg["enable"] and (
-        config["foresight"] == "myopic"
-    )
-    if build_year_agg_enabled:
-        indices = aggregate_build_years(
-            n, exclude_carriers=build_year_agg["exclude_carriers"]
-        )
 
     weights = {}
     static = near_opt_config["weights"].get("static", {})
@@ -266,10 +255,6 @@ def near_opt(
         print("Solved successfully")
         n.meta["near_opt_status"] = "success"
 
-        if build_year_agg_enabled:
-            del n.model
-            disaggregate_build_years(n, indices, current_horizon)
-
         return n
     elif (
         (status == "warning")
@@ -294,10 +279,6 @@ def near_opt(
             cost_bound,
         )
 
-        if build_year_agg_enabled:
-            del n.model
-            disaggregate_build_years(n, indices, current_horizon)
-
         return n
 
     elif "infeasible" in condition:
@@ -315,8 +296,6 @@ def near_opt(
             n.meta["opt_system_cost"] = (
                 n.statistics.installed_capex().sum() + n.objective
             )
-            if build_year_agg_enabled:
-                disaggregate_build_years(n, indices, current_horizon)
             return n
 
         elif "infeasible" in condition:
@@ -345,7 +324,6 @@ def near_opt_try_zero_low_res(
     n,
     config,
     params,
-    build_year_agg,
     planning_horizon,
     near_opt_config,
     kwargs,
@@ -384,11 +362,6 @@ def near_opt_try_zero_low_res(
     # Now, remove all components listed in the near-opt config
     disable_near_opt_components(m, near_opt_config)
 
-    build_year_agg_enabled = build_year_agg["enable"] and (
-        config["foresight"] == "myopic"
-    )
-    if build_year_agg_enabled:
-        aggregate_build_years(m, exclude_carriers=build_year_agg["exclude_carriers"])
 
     # Solve to optimality
     status, condition = m.optimize(**kwargs)
@@ -407,7 +380,6 @@ def near_opt_try_zero(
     config,
     params,
     solving,
-    build_year_agg,
     planning_horizon,
     near_opt_config,
     cost_bound,
@@ -426,7 +398,6 @@ def near_opt_try_zero(
         n,
         config,
         params,
-        build_year_agg,
         planning_horizon,
         near_opt_config,
         kwargs,
@@ -443,15 +414,6 @@ def near_opt_try_zero(
         # Now, remove all components listed in the near-opt config
         disable_near_opt_components(m, near_opt_config)
 
-        # Aggregation by build year
-        build_year_agg_enabled = build_year_agg["enable"] and (
-            config["foresight"] == "myopic"
-        )
-        if build_year_agg_enabled:
-            indices = aggregate_build_years(
-                m, exclude_carriers=build_year_agg["exclude_carriers"]
-            )
-
         # Solve to optimality
         status, condition = m.optimize(**kwargs)
 
@@ -464,10 +426,6 @@ def near_opt_try_zero(
             logger.info(
                 "Zero objective achieved by turning off components and solving to optimality"
             )
-
-            if build_year_agg_enabled:
-                del m.model
-                disaggregate_build_years(m, indices, planning_horizon)
 
             return m, True
     logger.info(
@@ -535,11 +493,6 @@ if __name__ == "__main__":
     n_opt = pypsa.Network(snakemake.input.network_opt)
     obj_base = n_opt.statistics.capex().sum() + n_opt.statistics.opex().sum()
     slack_absolute = slack * obj_base
-    if snakemake.params.build_year_agg["enable"]:
-        aggregate_build_years(
-            n_opt, exclude_carriers=snakemake.params.build_year_agg["exclude_carriers"]
-        )
-        obj_base = n_opt.statistics.capex().sum() + n_opt.statistics.opex().sum()
     del n_opt
 
     with memory_logger(
@@ -553,7 +506,6 @@ if __name__ == "__main__":
                 snakemake.config,
                 snakemake.params,
                 snakemake.params.solving,
-                snakemake.params.build_year_agg,
                 current_horizon,
                 snakemake.params.near_opt,
                 obj_base + slack_absolute,
@@ -566,7 +518,6 @@ if __name__ == "__main__":
                 snakemake.params,
                 snakemake.params.solving,
                 snakemake.params.near_opt,
-                snakemake.params.build_year_agg,
                 current_horizon,
                 snakemake.wildcards.sense,
                 obj_base + slack_absolute,
