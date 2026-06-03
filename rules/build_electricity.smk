@@ -95,7 +95,7 @@ rule base_network:
         benchmarks("base_network")
     threads: 4
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         countries=config_provider("countries"),
         snapshots=config_provider("snapshots"),
@@ -181,7 +181,7 @@ rule build_shapes:
         benchmarks("build_shapes")
     threads: 1
     resources:
-        mem_mb=1500,
+        mem_mb=get_memory(1500),
     params:
         config_provider("clustering", "mode"),
         countries=config_provider("countries"),
@@ -274,7 +274,7 @@ rule determine_availability_matrix_MD_UA:
         benchmarks("determine_availability_matrix_MD_UA_{clusters}_{technology}")
     threads: config["atlite"].get("nprocesses", 4)
     resources:
-        mem_mb=config["atlite"].get("nprocesses", 4) * 5000,
+        mem_mb=get_memory(config["atlite"].get("nprocesses", 4) * 5000),
     params:
         renewable=config_provider("renewable"),
         plot_availability_matrix=config_provider("atlite", "plot_availability_matrix"),
@@ -347,7 +347,7 @@ rule determine_availability_matrix:
         benchmarks("determine_availability_matrix_{clusters}_{technology}")
     threads: config["atlite"].get("nprocesses", 4)
     resources:
-        mem_mb=config["atlite"].get("nprocesses", 4) * 5000,
+        mem_mb=get_memory(config["atlite"].get("nprocesses", 4) * 5000),
     params:
         renewable=config_provider("renewable"),
         plot_availability_matrix=config_provider("atlite", "plot_availability_matrix"),
@@ -381,7 +381,7 @@ rule build_renewable_profiles:
         technology="(?!hydro).*",  # Any technology other than hydro
     threads: config["atlite"].get("nprocesses", 4)
     resources:
-        mem_mb=config["atlite"].get("nprocesses", 4) * 5000,
+        mem_mb=get_memory(config["atlite"].get("nprocesses", 4) * 5000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),

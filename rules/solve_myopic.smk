@@ -133,7 +133,7 @@ rule solve_sector_network_myopic:
         shadow_config
     threads: solver_threads
     resources:
-        mem_mb=config_provider("solving", "mem_mb"),
+        mem_mb=get_memory(128000),
         runtime=config_provider("solving", "runtime", default="6h"),
     params:
         solving=config_provider("solving"),

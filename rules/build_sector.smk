@@ -18,7 +18,7 @@ rule build_population_layouts:
         benchmarks("build_population_layouts")
     threads: 8
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     message:
         "Building population layout data (total, urban, rural) from NUTS3 shapes and World Bank statistics"
     script:
@@ -39,7 +39,7 @@ rule build_clustered_population_layouts:
     benchmark:
         benchmarks("build_clustered_population_layouts/s_{clusters}")
     resources:
-        mem_mb=10000,
+        mem_mb=get_memory(10000),
     message:
         "Clustering population layouts for {wildcards.clusters} clusters"
     script:
@@ -58,7 +58,7 @@ rule build_clustered_solar_rooftop_potentials:
     benchmark:
         benchmarks("build_clustered_solar_rooftop_potentials/s_{clusters}")
     resources:
-        mem_mb=10000,
+        mem_mb=get_memory(10000),
     message:
         "Building solar rooftop potentials for {wildcards.clusters} clusters"
     script:
@@ -79,7 +79,7 @@ rule build_simplified_population_layouts:
     benchmark:
         benchmarks("build_simplified_population_layouts/s")
     resources:
-        mem_mb=10000,
+        mem_mb=get_memory(10000),
     message:
         "Building simplified population layouts for base scenario"
     script:
@@ -96,7 +96,7 @@ rule build_gas_network:
     benchmark:
         benchmarks("build_gas_network")
     resources:
-        mem_mb=4000,
+        mem_mb=get_memory(4000),
     message:
         "Building cleaned gas network from SciGRID-Gas data"
     script:
@@ -120,7 +120,7 @@ rule build_gas_input_locations:
     benchmark:
         benchmarks("build_gas_input_locations/s_{clusters}")
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     message:
         "Building gas input locations for {wildcards.clusters} clusters"
     script:
@@ -139,7 +139,7 @@ rule cluster_gas_network:
     benchmark:
         benchmarks("cluster_gas_network/s_{clusters}")
     resources:
-        mem_mb=4000,
+        mem_mb=get_memory(4000),
     message:
         "Clustering gas network for {wildcards.clusters} clusters"
     script:
@@ -161,7 +161,7 @@ rule build_daily_heat_demand:
         benchmarks("build_daily_heat_demand/total_s_{clusters}")
     threads: 8
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -186,7 +186,7 @@ rule build_hourly_heat_demand:
         benchmarks("build_hourly_heat_demand/total_s_{clusters}")
     threads: 8
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -213,7 +213,7 @@ rule build_temperature_profiles:
         benchmarks("build_temperature_profiles/total_{clusters}")
     threads: 8
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -243,7 +243,7 @@ rule build_central_heating_temperature_profiles:
             "build_central_heating_temperature_profiles/s_{clusters}_{planning_horizons}"
         )
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     params:
         max_forward_temperature_central_heating_baseyear=config_provider(
             "sector",
@@ -307,7 +307,7 @@ rule build_dh_areas:
     benchmark:
         benchmarks("build_dh_areas_s/s_{clusters}")
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         handle_missing_countries=config_provider(
             "sector", "district_heating", "dh_areas", "handle_missing_countries"
@@ -333,7 +333,7 @@ rule build_geothermal_heat_potential:
     benchmark:
         benchmarks("build_heat_source_potentials/geothermal_s_{clusters}")
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         drop_leap_day=config_provider("enable", "drop_leap_day"),
         countries=config_provider("countries"),
@@ -377,7 +377,7 @@ rule build_ates_potentials:
     benchmark:
         benchmarks("build_ates_potentials_geothermal_s_{clusters}_{planning_horizons}")
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         max_top_temperature=config_provider(
             "sector",
@@ -498,7 +498,7 @@ rule build_river_heat_potential:
         benchmarks("build_river_water_heat_potential_base_s_{clusters}")
     threads: 1
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     params:
         drop_leap_day=config_provider("enable", "drop_leap_day"),
         snapshots=config_provider("snapshots"),
@@ -628,7 +628,7 @@ rule build_sea_heat_potential:
         benchmarks("build_sea_water_heat_potential_base_s_{clusters}")
     threads: config["atlite"].get("nprocesses", 4)
     resources:
-        mem_mb=10000,
+        mem_mb=get_memory(10000),
     params:
         drop_leap_day=config_provider("enable", "drop_leap_day"),
         snapshots=config_provider("snapshots"),
@@ -656,7 +656,7 @@ rule build_cop_profiles:
     benchmark:
         benchmarks("build_cop_profiles/s_{clusters}_{planning_horizons}")
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     params:
         heat_pump_sink_T_decentral_heating=config_provider(
             "sector", "heat_pump_sink_T_individual_heating"
@@ -702,7 +702,7 @@ rule build_ptes_operations:
     benchmark:
         benchmarks("build_ptes_operations_s_{clusters}_{planning_horizons}")
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         max_ptes_top_temperature=config_provider(
             "sector",
@@ -741,7 +741,7 @@ rule build_direct_heat_source_utilisation_profiles:
             "build_direct_heat_source_utilisation_profiles/s_{clusters}_{planning_horizons}"
         )
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     params:
         direct_utilisation_heat_sources=config_provider(
             "sector", "district_heating", "direct_utilisation_heat_sources"
@@ -769,7 +769,7 @@ rule build_solar_thermal_profiles:
         benchmarks("build_solar_thermal_profiles/total_{clusters}")
     threads: 16
     resources:
-        mem_mb=20000,
+        mem_mb=get_memory(20000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -791,7 +791,7 @@ rule build_eurostat_balances:
         benchmarks("build_eurostat_balances")
     threads: 1
     resources:
-        mem_mb=4000,
+        mem_mb=get_memory(4000),
     message:
         "Building Eurostat energy balances"
     script:
@@ -809,7 +809,7 @@ rule build_swiss_energy_balances:
         benchmarks("build_swiss_energy_balances")
     threads: 1
     resources:
-        mem_mb=4000,
+        mem_mb=get_memory(4000),
     message:
         "Building BFE Swiss energy balances"
     script:
@@ -839,7 +839,7 @@ rule build_energy_totals:
         benchmarks("build_energy_totals")
     threads: 16
     resources:
-        mem_mb=10000,
+        mem_mb=get_memory(10000),
     params:
         countries=config_provider("countries"),
         energy=config_provider("energy"),
@@ -881,7 +881,7 @@ rule build_heat_totals:
         benchmarks("build_heat_totals")
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     message:
         "Building heat totals"
     script:
@@ -911,7 +911,7 @@ rule build_biomass_potentials:
         benchmarks("build_biomass_potentials_s_{clusters}_{planning_horizons}")
     threads: 8
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         biomass=config_provider("biomass"),
     message:
@@ -932,7 +932,7 @@ rule build_biomass_transport_costs:
         benchmarks("build_biomass_transport_costs")
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     message:
         "Building biomass transport cost"
     script:
@@ -955,7 +955,7 @@ rule build_co2_sequestration_potentials:
         benchmarks("build_co2_sequestration_potentials")
     threads: 1
     resources:
-        mem_mb=4000,
+        mem_mb=get_memory(4000),
     message:
         "Building CO2 sequestration potentials"
     script:
@@ -977,7 +977,7 @@ rule build_clustered_co2_sequestration_potentials:
         benchmarks("build_clustered_co2_sequestration_potentials_{clusters}")
     threads: 1
     resources:
-        mem_mb=4000,
+        mem_mb=get_memory(4000),
     params:
         sequestration_potential=config_provider(
             "sector", "regional_co2_sequestration_potential"
@@ -1001,7 +1001,7 @@ rule build_salt_cavern_potentials:
         benchmarks("build_salt_cavern_potentials_s_{clusters}")
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     message:
         "Building salt cavern potential for hydrogen storage for {wildcards.clusters} clusters"
     script:
@@ -1019,7 +1019,7 @@ rule build_ammonia_production:
         benchmarks("build_ammonia_production")
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     message:
         "Building ammonia production capacity and location data"
     script:
@@ -1038,7 +1038,7 @@ rule build_industry_sector_ratios:
         benchmarks("build_industry_sector_ratios")
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     params:
         industry=config_provider("industry"),
         ammonia=config_provider("sector", "ammonia", default=False),
@@ -1067,7 +1067,7 @@ rule build_industry_sector_ratios_intermediate:
         benchmarks("build_industry_sector_ratios_{planning_horizons}")
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     params:
         industry=config_provider("industry"),
     message:
@@ -1092,7 +1092,7 @@ rule build_industrial_production_per_country:
         benchmarks("build_industrial_production_per_country")
     threads: 8
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         industry=config_provider("industry"),
         countries=config_provider("countries"),
@@ -1121,7 +1121,7 @@ rule build_industrial_production_per_country_tomorrow:
         )
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     params:
         industry=config_provider("industry"),
     message:
@@ -1149,7 +1149,7 @@ rule build_industrial_distribution_key:
         benchmarks("build_industrial_distribution_key/s_{clusters}")
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     params:
         hotmaps_locate_missing=config_provider(
             "industry", "hotmaps_locate_missing", default=False
@@ -1183,7 +1183,7 @@ rule build_industrial_production_per_node:
         )
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     message:
         "Distributing industrial production to network nodes for {wildcards.clusters} clusters and {wildcards.planning_horizons} planning horizon"
     script:
@@ -1217,7 +1217,7 @@ rule build_industrial_energy_demand_per_node:
         )
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     message:
         "Building industrial energy demand per network node for {wildcards.clusters} clusters and {wildcards.planning_horizons} planning horizon"
     script:
@@ -1241,7 +1241,7 @@ rule build_industrial_energy_demand_per_country_today:
         benchmarks("build_industrial_energy_demand_per_country_today")
     threads: 8
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         countries=config_provider("countries"),
         industry=config_provider("industry"),
@@ -1270,7 +1270,7 @@ rule build_industrial_energy_demand_per_node_today:
         benchmarks("build_industrial_energy_demand_per_node_today/s_{clusters}")
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     message:
         "Building current industrial energy demand per network node for {wildcards.clusters} clusters"
     script:
@@ -1297,7 +1297,7 @@ rule build_retro_cost:
     benchmark:
         benchmarks("build_retro_cost/s_{clusters}")
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     params:
         retrofitting=config_provider("sector", "retrofitting"),
         countries=config_provider("countries"),
@@ -1319,7 +1319,7 @@ rule build_population_weighted_energy_totals:
         benchmarks("build_population_weighted_{kind}_totals_{clusters}")
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -1343,7 +1343,7 @@ rule build_shipping_demand:
         benchmarks("build_shipping_demand/s_{clusters}")
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         energy_totals_year=config_provider("energy", "energy_totals_year"),
     message:
@@ -1373,7 +1373,7 @@ if MOBILITY_PROFILES_DATASET["source"] in ["build"]:
             benchmarks("build_mobility_profiles")
         threads: 1
         resources:
-            mem_mb=5000,
+            mem_mb=get_memory(5000),
         params:
             sector=config_provider("sector"),
         script:
@@ -1402,7 +1402,7 @@ rule build_transport_demand:
         benchmarks("build_transport_demand/s_{clusters}")
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -1428,7 +1428,7 @@ rule build_district_heat_share:
         benchmarks("build_district_heat_share_{clusters}_{planning_horizons}")
     threads: 1
     resources:
-        mem_mb=1000,
+        mem_mb=get_memory(1000),
     params:
         sector=config_provider("sector"),
         energy_totals_year=config_provider("energy", "energy_totals_year"),
@@ -1462,7 +1462,7 @@ rule build_existing_heating_distribution:
         )
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         baseyear=config_provider("scenario", "planning_horizons", 0),
         sector=config_provider("sector"),
@@ -1496,7 +1496,7 @@ rule time_aggregation:
         benchmarks("time_aggregation_base_s_{clusters}_elec_{opts}_{sector_opts}")
     threads: 1
     resources:
-        mem_mb=5000,
+        mem_mb=get_memory(5000),
     params:
         time_resolution=config_provider("clustering", "temporal"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -1534,7 +1534,7 @@ rule build_egs_potentials:
         benchmarks("build_egs_potentials_{clusters}")
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         snapshots=config_provider("snapshots"),
         drop_leap_day=config_provider("enable", "drop_leap_day"),
@@ -1703,7 +1703,7 @@ rule prepare_sector_network:
         )
     threads: 1
     resources:
-        mem_mb=2000,
+        mem_mb=get_memory(2000),
     params:
         time_resolution=config_provider("clustering", "temporal", "resolution_sector"),
         co2_budget=config_provider("co2_budget"),
