@@ -19,8 +19,8 @@ slurm-jobname-prefix: pypsa-eur
 
 # Maximum number of simultaneously running jobs.
 # https://help.itc.rwth-aachen.de/service/rhr4fjjutttf/article/d99e9f242bdb48eaa1c63c45e84fc32f/
-jobs: 80  # default
-# jobs: 800 # quoted project
+# jobs: 80  # default
+jobs: 800 # quoted project
 
 
 # Maximum number of jobs to submit at once (Slurm queues them, but submitting
@@ -32,7 +32,7 @@ max-status-checks-per-second: 0.5
 # Fault tolerance
 # ---------------------------------------------------------------------------
 # Retry each failed job.
-retries: 0
+retries: 2
 
 # Wait up to 5 s for output files to appear on the shared file system after
 # a job finishes (takes possible metadata latency into account).
@@ -42,7 +42,7 @@ latency-wait: 5
 keep-going: True
 
 default-resources:
-  slurm_account: "default"
+  slurm_account: thes2299
   runtime: 15min
   threads: 1
   mem_mb: 2540
@@ -63,7 +63,7 @@ slurm-partition-config: partitions.yaml
 # in the job script).
 # ---------------------------------------------------------------------------
 slurm-logdir: "/home/$USER/.snakemake/slurm_logs"
-slurm-keep-successful-logs: False
+slurm-keep-successful-logs: True
 slurm-efficiency-report: True
 slurm-efficiency-report-path: "/home/$USER/.snakemake/slurm_eff_reports"
 
