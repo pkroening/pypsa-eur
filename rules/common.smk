@@ -183,6 +183,23 @@ def memory(w):
     else:
         return int(factor * (10000 + 195 * int(w.clusters)))
 
+def get_memory(base_memory):
+    def mem(wildcards, threads, attempt):
+        mem_per_core = 2540     # MiB; default value and the recommended maximum for #SBATCH --mem-per-cpu; rwth claix c23ms
+
+        # base
+        cores_b = int(base_memory / mem_per_core) + (base_memory % mem_per_core > 0)    # round up
+        mem_b = cores_b * mem_per_core
+
+        # threads
+        mem_t = threads*mem_per_core   # cpus-per-task is equivalent to threads in Snakemake
+
+        # attempts
+        mem_a = (threads+attempt-1)*mem_per_core
+        
+        return max(mem_b, mem_t, mem_a)
+    return mem
+
 
 def input_custom_extra_functionality(w):
     path = config_provider(
