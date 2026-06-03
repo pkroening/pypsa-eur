@@ -1,4 +1,3 @@
-import itertools
 import logging
 import math
 import os
@@ -71,6 +70,7 @@ def optimize_mga_fixed_bound(
         Keyword argument used by `linopy.Model.solve`, such as `solver_name`,
 
     Returns
+    -------
     status : str
         The status of the optimization, either "ok" or one of the codes listed
         in https://linopy.readthedocs.io/en/latest/generated/linopy.constants.SolverStatus.html
@@ -96,7 +96,7 @@ def optimize_mga_fixed_bound(
 
     name = "total_system_cost"
     # Add globalconstraint object so dual variable can be registered (if it doesn't already exist)
-    if not name in n.global_constraints.index:
+    if name not in n.global_constraints.index:
         n.add(
             "GlobalConstraint",
             name=name,
@@ -216,6 +216,7 @@ def near_opt(
     cost_bound,
 ):
     kwargs, model_kwargs = prepare_solver_options(solving)
+    cf_solving = solving["options"]
 
     n.config = config
     n.params = params
