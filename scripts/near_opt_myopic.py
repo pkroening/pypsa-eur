@@ -466,7 +466,6 @@ if __name__ == "__main__":
     n = prepare_network(
         n,
         solve_opts,
-        clusters=snakemake.wildcards.clusters,
         config=snakemake.config,
         sector=snakemake.params.sector,
         foresight="myopic",
