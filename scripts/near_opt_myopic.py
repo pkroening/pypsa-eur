@@ -444,8 +444,6 @@ if __name__ == "__main__":
             simpl="",
             opts="",
             clusters="37",
-            ll="v1.0",
-            sector_opts="CO2L0-1H-T-H-B-I-A-dist1",
             planning_horizons="2030",
         )
 
@@ -463,14 +461,12 @@ if __name__ == "__main__":
     planning_horizons = snakemake.params.planning_horizons
     current_horizon = snakemake.wildcards.planning_horizons
 
-    n = prepare_network(
-        n,
-        solve_opts,
-        config=snakemake.config,
-        sector=snakemake.params.sector,
+    prepare_network(
+        n=n,
+        solve_opts=solve_opts,
         foresight="myopic",
-        planning_horizons=planning_horizons,
-        current_horizon=current_horizon,
+        planning_horizons=current_horizon,
+        co2_sequestration_potential=snakemake.params["co2_sequestration_potential"],
     )
 
     # Calculate slack. We gradually increase slack from half the

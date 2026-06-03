@@ -166,13 +166,14 @@ rule near_opt_myopic:
     threads: solver_threads
     resources:
         mem_mb=config_provider("solving", "mem_mb"),
-        runtime=config_provider("solving", "runtime", default="3d"),
+        runtime=config_provider("solving", "runtime", default="1d"),
     params:
         solving=config_provider("solving"),
         near_opt=config_provider("near_opt"),
         planning_horizons=config_provider("scenario", "planning_horizons"),
-        sector=config_provider("sector"),
-        build_year_agg=config_provider("clustering", "build_year_aggregation"),
+        co2_sequestration_potential=config_provider(
+            "sector", "co2_sequestration_potential", default=200
+        ),
         custom_extra_functionality=input_custom_extra_functionality,
     script:
         scripts("near_opt_myopic.py")
