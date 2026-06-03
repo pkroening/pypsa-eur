@@ -1282,7 +1282,7 @@ solving:
   oetc:
   mem_mb: 128000
   memory_logging_frequency: 5
-  runtime: 48h
+  runtime: 1h  # 24h Max. allowed wallclocktime for project
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#data
 data:
