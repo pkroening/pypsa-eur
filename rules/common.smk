@@ -193,10 +193,13 @@ def get_memory(base_memory:int|partial, partition:str = "c23ms"):
         raise ValueError(f"Partition {partition} is not supportet for function get_memory().")
 
     def mem(wildcards, threads, attempt):
-        if base_memory is int:
+        # check type
+        if isinstance(base_memory, partial):
+            mem_b = base_memory(wildcards)
+        elif isinstance(base_memory, int):
             mem_b = base_memory
         else:
-            mem_b = base_memory(wildcards)
+            raise ValueError(f"The agument base_memory is expected to be either an int or a partial, but it's {type(base_memory)}.")
 
         # base: round up on multiple of cluster max mem_per_core
         mem_b = mem_per_core * (int(mem_b / mem_per_core) + (mem_b % mem_per_core > 0))
