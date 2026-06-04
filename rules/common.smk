@@ -183,28 +183,33 @@ def memory(w):
     else:
         return int(factor * (10000 + 195 * int(w.clusters)))
 
-def get_memory(base_memory):
+def get_memory(base_memory:int|partial, partition:str = "c23ms"):
+    # Claix: default value and the recommended maximum for #SBATCH --mem-per-cpu
+    if partition == "c23ms":
+        mem_per_core = 2540   # MiB
+    elif partition == "c23mm":
+        mem_per_core = 5210   # MiB
+    else:
+        raise ValueError(f"Partition {partition} is not supportet for function get_memory().")
+
     def mem(wildcards, threads, attempt):
-        # Claix: default value and the recommended maximum for #SBATCH --mem-per-cpu
-        mem_per_core_c23ms = 2540   # MiB
-        mem_per_core_c23mm = 5210   # MiB
+        if base_memory is int:
+            mem_b = base_memory
+        else:
+            mem_b = base_memory(wildcards)
 
         # base
-        cpus_b_c23ms = int(base_memory / mem_per_core_c23ms) + (base_memory % mem_per_core_c23ms > 0)    # round up
-        cpus_b_c23mm = int(base_memory / mem_per_core_c23mm) + (base_memory % mem_per_core_c23mm > 0)    # round up
-        mem_b_c23ms = cpus_b_c23ms * mem_per_core_c23ms
-        mem_b_c23mm = cpus_b_c23mm * mem_per_core_c23mm
+        cpus_b = int(mem_b / mem_per_core) + (mem_b % mem_per_core > 0)    # round up
+        mem_b = cpus_b * mem_per_core
 
         # cpus
         cpus_per_task = threads # cpus-per-task is equivalent to threads in Snakemake
-        mem_t_c23ms = cpus_per_task*mem_per_core_c23ms
-        mem_t_c23mm = cpus_per_task*mem_per_core_c23mm
+        mem_t = cpus_per_task*mem_per_core
 
         # attempts
-        mem_a_c23ms = (cpus_per_task+attempt-1)*mem_per_core_c23ms
-        mem_a_c23mm = (cpus_per_task+attempt-1)*mem_per_core_c23mm
+        mem_a = (cpus_per_task+attempt-1)*mem_per_core
         
-        return max(mem_b_c23ms, mem_t_c23ms, mem_a_c23ms)
+        return max(mem_b, mem_t, mem_a)
     return mem
 
 
