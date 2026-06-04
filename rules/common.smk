@@ -198,16 +198,14 @@ def get_memory(base_memory:int|partial, partition:str = "c23ms"):
         else:
             mem_b = base_memory(wildcards)
 
-        # base
-        cpus_b = int(mem_b / mem_per_core) + (mem_b % mem_per_core > 0)    # round up
-        mem_b = cpus_b * mem_per_core
+        # base: round up on multiple of cluster max mem_per_core
+        mem_b = mem_per_core * (int(mem_b / mem_per_core) + (mem_b % mem_per_core > 0))
 
-        # cpus
-        cpus_per_task = threads # cpus-per-task is equivalent to threads in Snakemake
-        mem_t = cpus_per_task*mem_per_core
+        # cpus: cpus-per-task is equivalent to threads in Snakemake
+        mem_t = mem_per_core * threads
 
-        # attempts
-        mem_a = (cpus_per_task+attempt-1)*mem_per_core
+        # attempt (starting from 1): increase linearly
+        mem_a = (attempt-0.4)*max(mem_b, mem_t)
         
         return max(mem_b, mem_t, mem_a)
     return mem
