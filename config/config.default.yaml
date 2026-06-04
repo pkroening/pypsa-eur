@@ -1194,7 +1194,7 @@ solving:
     SAFE: false
   solver:
     name: gurobi
-    options: "gurobi-custom"
+    options: "gurobi-claix"
   solver_options:
     "highs-default":
       threads: 1
@@ -1223,8 +1223,8 @@ solving:
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
       IISMethod: 1
-    "gurobi-default":
-      threads: 48
+    "gurobi-claix":
+      threads: 20
       method: 2
       crossover: 0
       BarConvTol: 1.0e-05
