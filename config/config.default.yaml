@@ -1224,7 +1224,7 @@ solving:
       GURO_PAR_BARDENSETHRESH: 200
       IISMethod: 1
     "gurobi-claix":
-      threads: 20
+      threads: 16
       method: 2
       crossover: 0
       BarConvTol: 1.0e-05
@@ -1290,9 +1290,9 @@ solving:
     atol: 1000000
     rtol: 0.01
   oetc:
-  mem_mb: 128000
+  mem_mb: 333440
   memory_logging_frequency: 5
-  runtime: 1h  # 24h Max. allowed wallclocktime for project
+  runtime: 12h  # 24h Max. allowed wallclocktime for project
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#data
 data:
