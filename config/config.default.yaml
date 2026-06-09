@@ -10,7 +10,7 @@ tutorial: false
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#logging
 logging:
-  level: INFO
+  level: DEBUG
   format: "%(levelname)s:%(name)s:%(message)s"
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#remote
