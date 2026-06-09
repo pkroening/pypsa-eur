@@ -44,18 +44,18 @@ if config["foresight"] != "perfect":
     rule plot_power_network:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             map=RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}{near_opt}.pdf",
         log:
             RESULTS
-            + "logs/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
+            + "logs/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+                + "benchmarks/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
             )
         threads: 2
         resources:
@@ -71,18 +71,18 @@ if config["foresight"] != "perfect":
     rule plot_hydrogen_network:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             map=RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}{near_opt}.pdf",
         log:
             RESULTS
-            + "logs/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
+            + "logs/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+                + "benchmarks/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
             )
         threads: 2
         resources:
@@ -98,18 +98,18 @@ if config["foresight"] != "perfect":
     rule plot_gas_network:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             map=RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}{near_opt}.pdf",
         log:
             RESULTS
-            + "logs/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
+            + "logs/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+                + "benchmarks/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
             )
         threads: 2
         resources:
@@ -414,16 +414,16 @@ rule make_summary_near_opt:
     input:
         networks=expand(
             RESULTS
-            + "postnetworks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
             **config["scenario"],
             sense=["min", "max"],
             allow_missing=True,
         ),
         costs=lambda w: (
-            resources("costs_{}.csv".format(config_provider("costs", "year")(w)))
+            resources("costs_{}_processed.csv".format(config_provider("costs", "year")(w)))
             if config_provider("foresight")(w) == "overnight"
             else resources(
-                "costs_{}.csv".format(
+                "costs_{}_processed.csv".format(
                     config_provider("scenario", "planning_horizons", 0)(w)
                 )
             )
@@ -435,7 +435,7 @@ rule make_summary_near_opt:
         ),
         costs_plot=expand(
             RESULTS
-            + "maps/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}_{sense}{slack}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}_{sense}{slack}.pdf",
             **config["scenario"],
             sense=["min", "max"],
             allow_missing=True,
@@ -443,7 +443,7 @@ rule make_summary_near_opt:
         h2_plot=lambda w: expand(
             (
                 RESULTS
-                + "maps/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}_{sense}{slack}.pdf"
+                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}_{sense}{slack}.pdf"
                 if config_provider("sector", "H2_network")(w)
                 else []
             ),
@@ -454,7 +454,7 @@ rule make_summary_near_opt:
         ch4_plot=lambda w: expand(
             (
                 RESULTS
-                + "maps/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}_{sense}{slack}.pdf"
+                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}_{sense}{slack}.pdf"
                 if config_provider("sector", "gas_network")(w)
                 else []
             ),
