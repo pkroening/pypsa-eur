@@ -1291,9 +1291,9 @@ solving:
     atol: 1000000
     rtol: 0.01
   oetc:
-  mem_mb: 333440
+  mem_mb: 128000
   memory_logging_frequency: 5
-  runtime: 12h  # 24h Max. allowed wallclocktime for project
+  runtime: 6h  # 24h Max. allowed wallclocktime for project
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#data
 data:
