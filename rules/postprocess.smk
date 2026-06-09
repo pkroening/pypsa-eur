@@ -481,6 +481,8 @@ rule make_summary_near_opt:
         metrics=RESULTS + "csvs_near_opt/metrics.csv",
     log:
         logs("make_summary_near_opt.log"),
+    benchmark:
+        benchmarks("make_summary_near_opt"),
     threads: 2
     resources:
         mem_mb=10000,
@@ -552,8 +554,6 @@ rule plot_summary_near_opt:
         costs=RESULTS + "csvs_near_opt/costs.csv",
         energy=RESULTS + "csvs_near_opt/energy.csv",
         balances=RESULTS + "csvs_near_opt/supply_energy.csv",
-        eurostat="data/eurostat/eurostat-energy_balances-april_2023_edition",
-        co2="data/bundle/eea/UNFCCC_v23.csv",
     output:
         costs=RESULTS + "graphs_near_opt/costs.svg",
         energy=RESULTS + "graphs_near_opt/energy.svg",
@@ -586,7 +586,7 @@ rule make_all_summaries:
 
 rule plot_all_summaries:
     input:
-        expand(RESULTS + "graphs/costs.svg", run=config["run"]["name"]),
+        expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
         expand(RESULTS + "graphs_near_opt/costs.svg", run=config["run"]["name"]),
 
 rule plot_balance_timeseries:
