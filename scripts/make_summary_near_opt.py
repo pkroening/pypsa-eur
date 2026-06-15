@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # SPDX-FileCopyrightText: : 2020-2024 The PyPSA-Eur Authors
 #
 # SPDX-License-Identifier: MIT
@@ -8,37 +7,31 @@ capacity factors, curtailment, energy balances, prices and other metrics.
 """
 
 import logging
-import sys
 
 import numpy as np
 import pandas as pd
 import pypsa
-from _helpers import configure_logging, get_snapshots, set_scenario_config
+from _helpers import configure_logging, load_costs, set_scenario_config
 from make_summary import (
     assign_carriers,
     assign_locations,
+    # accessed by globals()["calculate_" + output]
     calculate_capacities,
-    calculate_cfs,
+    calculate_capacity_factors,
     calculate_costs,
     calculate_curtailment,
     calculate_energy,
+    calculate_energy_balance,
     calculate_market_values,
     calculate_metrics,
     calculate_nodal_capacities,
-    calculate_nodal_cfs,
+    calculate_nodal_capacity_factors,
     calculate_nodal_costs,
-    calculate_nodal_supply_energy,
-    calculate_price_statistics,
+    calculate_nodal_energy_balance,
     calculate_prices,
-    calculate_supply,
-    calculate_supply_energy,
     calculate_weighted_prices,
-    configure_logging,
-    get_snapshots,
-    prepare_costs,
-    set_scenario_config,
 )
-from prepare_sector_network import prepare_costs
+# from make_cumulative_costs import calculate_cumulative_cost
 
 idx = pd.IndexSlice
 logger = logging.getLogger(__name__)
@@ -100,30 +93,27 @@ def calculate_cumulative_cost():
 
     return cumulative_cost
 
-
 def make_summaries(networks_dict):
     outputs = [
-        "nodal_costs",
-        "nodal_capacities",
-        "nodal_cfs",
-        "cfs",
-        "costs",
         "capacities",
+        "capacity_factors",
+        "costs",
         "curtailment",
         "energy",
-        "supply",
-        "supply_energy",
-        "nodal_supply_energy",
-        "prices",
-        "weighted_prices",
-        "price_statistics",
         "market_values",
         "metrics",
+        "nodal_capacities",
+        "nodal_capacity_factors",
+        "nodal_costs",
+        "nodal_energy_balance",
+        "prices",
+        "energy_balance",
+        "weighted_prices",
     ]
 
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(),
-        names=["cluster", "ll", "opt", "planning_horizon", "sense", "slack"],
+        names=["cluster", "opt", "planning_horizon", "sense", "slack"],
     )
 
     df = {output: pd.DataFrame(columns=columns, dtype=float) for output in outputs}
@@ -136,7 +126,7 @@ def make_summaries(networks_dict):
         assign_locations(n)
 
         for output in outputs:
-            df[output] = globals()["calculate_" + output](n, label, df[output])
+            df[output] = globals()["calculate_" + output](n)
 
     return df
 
@@ -156,26 +146,18 @@ if __name__ == "__main__":
     set_scenario_config(snakemake)
 
     networks_dict = {
-        (cluster, ll, opt + sector_opt, planning_horizon, sense, slack): "results/"
+        (cluster, opt + sector_opt, planning_horizon, sense, slack): "results/"
         + snakemake.params.RDIR
-        + f"/networks/base_s_{cluster}_l{ll}_{opt}_{sector_opt}_{planning_horizon}_{sense}{slack}.nc"
+        + f"/networks/base_s_{cluster}_{opt}_{sector_opt}_{planning_horizon}_{sense}{slack}.nc"
         for cluster in snakemake.params.scenario["clusters"]
         for opt in snakemake.params.scenario["opts"]
         for sector_opt in snakemake.params.scenario["sector_opts"]
-        for ll in snakemake.params.scenario["ll"]
         for planning_horizon in snakemake.params.scenario["planning_horizons"]
         for sense in ["min", "max"]
         for slack in snakemake.params.scenario["slack"]
     }
 
-    time = get_snapshots(snakemake.params.snapshots, snakemake.params.drop_leap_day)
-    Nyears = len(time) / 8760
-
-    costs_db = prepare_costs(
-        snakemake.input.costs,
-        snakemake.params.costs,
-        Nyears,
-    )
+    costs_db = load_costs(snakemake.input.costs)
 
     df = make_summaries(networks_dict)
 

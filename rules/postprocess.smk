@@ -465,19 +465,17 @@ rule make_summary_near_opt:
     output:
         nodal_costs=RESULTS + "csvs_near_opt/nodal_costs.csv",
         nodal_capacities=RESULTS + "csvs_near_opt/nodal_capacities.csv",
-        nodal_cfs=RESULTS + "csvs_near_opt/nodal_cfs.csv",
-        cfs=RESULTS + "csvs_near_opt/cfs.csv",
+        nodal_capacity_factors=RESULTS + "csvs_near_opt/nodal_capacity_factors.csv",
+        capacity_factors=RESULTS + "csvs_near_opt/capacity_factors.csv",
         costs=RESULTS + "csvs_near_opt/costs.csv",
         capacities=RESULTS + "csvs_near_opt/capacities.csv",
         curtailment=RESULTS + "csvs_near_opt/curtailment.csv",
         energy=RESULTS + "csvs_near_opt/energy.csv",
-        supply=RESULTS + "csvs_near_opt/supply.csv",
-        supply_energy=RESULTS + "csvs_near_opt/supply_energy.csv",
-        nodal_supply_energy=RESULTS + "csvs_near_opt/nodal_supply_energy.csv",
+        energy_balance=RESULTS + "csvs_near_opt/energy_balance.csv",
+        nodal_energy_balance=RESULTS + "csvs_near_opt/nodal_energy_balance.csv",
         prices=RESULTS + "csvs_near_opt/prices.csv",
         weighted_prices=RESULTS + "csvs_near_opt/weighted_prices.csv",
         market_values=RESULTS + "csvs_near_opt/market_values.csv",
-        price_statistics=RESULTS + "csvs_near_opt/price_statistics.csv",
         metrics=RESULTS + "csvs_near_opt/metrics.csv",
     log:
         logs("make_summary_near_opt.log"),
@@ -529,7 +527,7 @@ rule plot_summary:
     output:
         costs=RESULTS + "graphs/costs.pdf",
         energy=RESULTS + "graphs/energy.pdf",
-        balances=RESULTS + "graphs/balances-energy.pdf",
+        balances=RESULTS + "graphs/energy_balance.pdf",
     log:
         RESULTS + "logs/plot_summary.log",
     threads: 2
@@ -553,11 +551,11 @@ rule plot_summary_near_opt:
     input:
         costs=RESULTS + "csvs_near_opt/costs.csv",
         energy=RESULTS + "csvs_near_opt/energy.csv",
-        balances=RESULTS + "csvs_near_opt/supply_energy.csv",
+        balances=RESULTS + "csvs_near_opt/energy_balance.csv",
     output:
         costs=RESULTS + "graphs_near_opt/costs.svg",
         energy=RESULTS + "graphs_near_opt/energy.svg",
-        balances=RESULTS + "graphs_near_opt/balances-energy.svg",
+        balances=RESULTS + "graphs_near_opt/energy_balance.svg",
     threads: 2
     resources:
         mem_mb=10000,
@@ -654,7 +652,6 @@ STATISTICS_BARPLOTS = [
     "capital_expenditure",
     "operational_expenditure",
     "curtailment",
-    "supply",
     "withdrawal",
     "market_value",
 ]

@@ -157,8 +157,6 @@ rule make_summary_perfect:
         capacities=RESULTS + "csvs/capacities.csv",
         curtailment=RESULTS + "csvs/curtailment.csv",
         energy=RESULTS + "csvs/energy.csv",
-        supply=RESULTS + "csvs/supply.csv",
-        supply_energy=RESULTS + "csvs/supply_energy.csv",
         prices=RESULTS + "csvs/prices.csv",
         weighted_prices=RESULTS + "csvs/weighted_prices.csv",
         market_values=RESULTS + "csvs/market_values.csv",
