@@ -31,3 +31,18 @@ near_opt:
           "H2 Electrolysis": 1
   slack_initial_fraction: 0.75
   obj_bound_scaling_factor: 1e-3
+
+plotting:
+  map:
+    boundaries:
+  eu_node_location:
+    x: -5.5
+    y: 46.
+  costs_max: 1000
+  costs_threshold: 0.0000001
+  energy_max:
+  energy_min:
+  energy_threshold: 0.000001
+  interactive_bus_balance:
+    bus_name_pattern: "*central heat*"
+  enable_heat_source_maps: true
