@@ -31,65 +31,59 @@ from make_summary import (
     calculate_prices,
     calculate_weighted_prices,
 )
-# from make_cumulative_costs import calculate_cumulative_cost
 
 idx = pd.IndexSlice
 logger = logging.getLogger(__name__)
 opt_name = {"Store": "e", "Line": "s", "Transformer": "s"}
 
 
-def calculate_cumulative_cost():
-    planning_horizons = snakemake.params.scenario["planning_horizons"]
-
+def calculate_cumulative_cost(costs, planning_horizons):
     cumulative_cost = pd.DataFrame(
-        index=df["costs"].sum().index,
+        index=costs.sum().index,
         columns=pd.Series(data=np.arange(0, 0.1, 0.01), name="social discount rate"),
     )
 
     # discount cost and express them in money value of planning_horizons[0]
     for r in cumulative_cost.columns:
         cumulative_cost[r] = [
-            df["costs"].sum()[index] / ((1 + r) ** (index[-1] - planning_horizons[0]))
+            costs.sum()[index] / ((1 + r) ** (index[-1] - planning_horizons[0]))
             for index in cumulative_cost.index
         ]
 
     # integrate cost throughout the transition path
     for r in cumulative_cost.columns:
         for cluster in cumulative_cost.index.get_level_values(level=0).unique():
-            for ll in cumulative_cost.index.get_level_values(level=1).unique():
-                for sector_opts in cumulative_cost.index.get_level_values(
-                    level=2
+            for sector_opts in cumulative_cost.index.get_level_values(
+                level=1
+            ).unique():
+                for sense in cumulative_cost.index.get_level_values(
+                    level=3
                 ).unique():
-                    for sense in cumulative_cost.index.get_level_values(
+                    for slack in cumulative_cost.index.get_level_values(
                         level=4
                     ).unique():
-                        for slack in cumulative_cost.index.get_level_values(
-                            level=5
-                        ).unique():
+                        cumulative_cost.loc[
+                            (
+                                cluster,
+                                sector_opts,
+                                "cumulative cost",
+                                sense,
+                                slack,
+                            ),
+                            r,
+                        ] = np.trapezoid(
                             cumulative_cost.loc[
-                                (
+                                idx[
                                     cluster,
-                                    ll,
                                     sector_opts,
-                                    "cumulative cost",
+                                    planning_horizons,
                                     sense,
                                     slack,
-                                ),
+                                ],
                                 r,
-                            ] = np.trapz(
-                                cumulative_cost.loc[
-                                    idx[
-                                        cluster,
-                                        ll,
-                                        sector_opts,
-                                        planning_horizons,
-                                        sense,
-                                        slack,
-                                    ],
-                                    r,
-                                ].values,
-                                x=planning_horizons,
-                            )
+                            ].values,
+                            x=planning_horizons,
+                        )
 
     return cumulative_cost
 
@@ -126,7 +120,7 @@ def make_summaries(networks_dict):
         assign_locations(n)
 
         for output in outputs:
-            df[output] = globals()["calculate_" + output](n)
+            df[output][label] = globals()["calculate_" + output](n)
 
     return df
 
@@ -166,7 +160,7 @@ if __name__ == "__main__":
     to_csv(df)
 
     if snakemake.params.foresight == "myopic":
-        cumulative_cost = calculate_cumulative_cost()
+        cumulative_cost = calculate_cumulative_cost(df["costs"], snakemake.params.scenario["planning_horizons"])
         cumulative_cost.to_csv(
             "results/" + snakemake.params.RDIR + "csvs/cumulative_cost.csv"
         )
