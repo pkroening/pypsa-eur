@@ -791,7 +791,7 @@ rule build_eurostat_balances:
         benchmarks("build_eurostat_balances")
     threads: 1
     resources:
-        mem_mb=get_memory(4000),
+        mem_mb=get_memory(7500),
     message:
         "Building Eurostat energy balances"
     script:
