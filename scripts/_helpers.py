@@ -1027,6 +1027,15 @@ def rename_techs(label: str) -> str:
     return label
 
 
+def extend_tech_keys(tech: dict, nice_names: dict):
+    for key, value in nice_names.items():
+        try:
+            tech[value] = tech[key]
+        except KeyError:
+            pass
+    return tech
+
+
 def load_cutout(
     cutout_files: str | list[str],
     time: None | pd.DatetimeIndex = None,

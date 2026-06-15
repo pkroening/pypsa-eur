@@ -527,7 +527,7 @@ rule plot_summary:
     output:
         costs=RESULTS + "graphs/costs.pdf",
         energy=RESULTS + "graphs/energy.pdf",
-        balances=RESULTS + "graphs/energy_balance.pdf",
+        balances=RESULTS + "graphs/balances-energy.pdf",
     log:
         RESULTS + "logs/plot_summary.log",
     threads: 2
@@ -553,9 +553,9 @@ rule plot_summary_near_opt:
         energy=RESULTS + "csvs_near_opt/energy.csv",
         balances=RESULTS + "csvs_near_opt/energy_balance.csv",
     output:
-        costs=RESULTS + "graphs_near_opt/costs.svg",
-        energy=RESULTS + "graphs_near_opt/energy.svg",
-        balances=RESULTS + "graphs_near_opt/energy_balance.svg",
+        costs=RESULTS + "graphs_near_opt/costs.pdf",
+        energy=RESULTS + "graphs_near_opt/energy.pdf",
+        balances=RESULTS + "graphs_near_opt/balances-energy.pdf",
     threads: 2
     resources:
         mem_mb=10000,
@@ -585,7 +585,7 @@ rule make_all_summaries:
 rule plot_all_summaries:
     input:
         expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
-        expand(RESULTS + "graphs_near_opt/costs.svg", run=config["run"]["name"]),
+        expand(RESULTS + "graphs_near_opt/costs.pdf", run=config["run"]["name"]),
 
 rule plot_balance_timeseries:
     input:
