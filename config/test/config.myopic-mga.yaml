@@ -17,13 +17,16 @@ scenario:
   slack:
   - 0.1
 
-countries: ["DE"]
+countries: 
+  - DE
+  - FR
 
 snapshots:
   start: "2013-03-01"
   end: "2013-03-08"
 
 near_opt:
+  country: DE
   weights:
     varying:
       Link:
