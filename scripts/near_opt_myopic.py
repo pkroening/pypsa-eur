@@ -436,15 +436,17 @@ def near_opt_try_zero(
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
-        from _helpers import mock_snakemake
+        from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "solve_sector_network",
-            configfiles="../config/test/config.perfect.yaml",
-            simpl="",
+            "near_opt_myopic",
+            configfiles="config/test/config.myopic-mga.yaml",
+            clusters="5",
             opts="",
-            clusters="37",
+            sector_opts="",
             planning_horizons="2030",
+            sense="max",
+            slack=0.1,
         )
 
     # Follow `solve_network.py` for how to set up logging,
