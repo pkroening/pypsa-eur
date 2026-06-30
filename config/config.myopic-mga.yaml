@@ -17,7 +17,7 @@ scenario:
   - 0.1
 
 near_opt:
-  country: DE
+  region: DE
   weights:
     varying:
       Link:

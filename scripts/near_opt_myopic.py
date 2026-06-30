@@ -255,6 +255,9 @@ def near_opt(
         print("Solved successfully")
         n.meta["near_opt_status"] = "success"
 
+        for c in n.components:
+            c.static.to_csv(f"temp/static/{c.name}-mga_opt.csv")
+
         return n
     elif (
         (status == "warning")
@@ -433,6 +436,58 @@ def near_opt_try_zero(
     )
     return None, False
 
+def get_region_buses(
+    region: str | list[str],
+    n: pypsa.Network,
+    ) -> tuple[pd.Series]:
+    if isinstance(region, str):
+        region = [region]
+    buses = n.buses
+    mask = buses.index.str.startswith("EU")
+    mask += buses.index.str.contains("atmosphere")
+    for country in region:
+        mask += (buses["country"] == country)
+    buses_inside = buses[mask].index
+    buses_outside = buses[~mask].index
+    return buses_inside, buses_outside
+
+def prepare_regional_mga(
+        region: str,
+        n_mga: pypsa.Network,
+        n_opt: pypsa.Network,
+):
+    # Get buses outside of region
+    if not n_mga.buses.index.equals(n_opt.buses.index):
+        raise IndexError("The buses of the optimized network and the network for mga differ unexpectedly.")
+    buses_mga_in, buses_mga_out = get_region_buses(region=region, n=n_mga)
+    buses_opt_in, buses_opt_out = get_region_buses(region=region, n=n_opt)
+
+    for c_mga, c_opt in zip(n_mga.components, n_opt.components):
+        assert c_mga.name == c_opt.name
+
+        c_opt.static.to_csv(f"temp/static/{c_mga.name}-opt.csv")
+        c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga.csv")
+
+        # Get extendable attribute columns
+        extendables = [
+            column for column in c_mga.static.columns
+            if "_extendable" in column
+        ]
+        if any(extendables):
+
+            # Get components outside of region
+            bus_col = [c for c in c_mga.static.columns if "bus" in c]
+            outside = c_mga.static[bus_col].isin(buses_mga_out)
+            outside = outside[outside.any(axis="columns")].index
+            if any(outside):
+
+                # Disable extenble components outside of region
+                c_mga.static.loc[
+                    outside,
+                    extendables,
+                ] = False
+
+            c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
@@ -444,7 +499,7 @@ if __name__ == "__main__":
             clusters="5",
             opts="",
             sector_opts="",
-            planning_horizons="2030",
+            planning_horizons="2045",
             sense="max",
             slack=0.1,
         )
@@ -459,17 +514,22 @@ if __name__ == "__main__":
 
     np.random.seed(solve_opts.get("seed", 123))
 
-    n = pypsa.Network(snakemake.input.network)
     planning_horizons = snakemake.params.planning_horizons
     current_horizon = snakemake.wildcards.planning_horizons
 
+    # Prepare network to solve and get objecive bound
+    n_mga = pypsa.Network(snakemake.input.network)
     prepare_network(
-        n=n,
+        n=n_mga,
         solve_opts=solve_opts,
         foresight="myopic",
         planning_horizons=current_horizon,
         co2_sequestration_potential=snakemake.params["co2_sequestration_potential"],
     )
+    n_opt = pypsa.Network(snakemake.input.network_opt)
+    obj_base = n_opt.statistics.capex().sum() + n_opt.statistics.opex().sum()  # TODO
+    prepare_regional_mga(snakemake.params.near_opt["region"], n_mga, n_opt)
+    del n_opt
 
     # Calculate slack. We gradually increase slack from half the
     # nominal slack at the first planning horizon to the full slack at
@@ -486,12 +546,6 @@ if __name__ == "__main__":
     )
     logger.info(f"Slack for horizon {current_horizon}: {slack}")
 
-    # Base objective slack on optimal network.
-    n_opt = pypsa.Network(snakemake.input.network_opt)
-    obj_base = n_opt.statistics.capex().sum() + n_opt.statistics.opex().sum()
-    slack_absolute = slack * obj_base
-    del n_opt
-
     with memory_logger(
         filename=getattr(snakemake.log, "memory", None), interval=30.0
     ) as mem:
@@ -499,25 +553,25 @@ if __name__ == "__main__":
         fast_path_success = False
         if snakemake.wildcards.sense == "min":
             m, fast_path_success = near_opt_try_zero(
-                n,
+                n_mga,
                 snakemake.config,
                 snakemake.params,
                 snakemake.params.solving,
                 current_horizon,
                 snakemake.params.near_opt,
-                obj_base + slack_absolute,
+                obj_base*(1+slack),
             )
 
         if not fast_path_success:
             m = near_opt(
-                n,
+                n_mga,
                 snakemake.config,
                 snakemake.params,
                 snakemake.params.solving,
                 snakemake.params.near_opt,
                 current_horizon,
                 snakemake.wildcards.sense,
-                obj_base + slack_absolute,
+                obj_base*(1+slack),
             )
 
     logger.info(f"Maximum memory usage: {mem.mem_usage}")
