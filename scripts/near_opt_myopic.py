@@ -489,6 +489,13 @@ def prepare_regional_mga(
 
             c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
 
+    # Get objective value for region
+    region_index = (slice(None), region)
+    capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")[region_index].sum()
+    opex = n_opt.statistics.opex(groupby="country", groupby_method="sum")[region_index].sum()
+    obj_base = capex + opex
+    return obj_base
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from scripts._helpers import mock_snakemake
@@ -527,8 +534,7 @@ if __name__ == "__main__":
         co2_sequestration_potential=snakemake.params["co2_sequestration_potential"],
     )
     n_opt = pypsa.Network(snakemake.input.network_opt)
-    obj_base = n_opt.statistics.capex().sum() + n_opt.statistics.opex().sum()  # TODO
-    prepare_regional_mga(snakemake.params.near_opt["region"], n_mga, n_opt)
+    obj_base = prepare_regional_mga(snakemake.params.near_opt["region"], n_mga, n_opt)
     del n_opt
 
     # Calculate slack. We gradually increase slack from half the
