@@ -470,11 +470,13 @@ def prepare_regional_network(
         c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga.csv")
 
         # Get extendable attribute columns
-        extendables = [
-            column for column in c_mga.static.columns
-            if "_extendable" in column
+        attributes = [
+            column[:-len("_nom_extendable")] for column in c_mga.static.columns
+            if "_nom_extendable" in column
         ]
-        if any(extendables):
+        if any(attributes):
+            for attr in attributes:
+                c_opt.static[f"{attr}_nom"] = c_opt.static[f"{attr}_nom_opt"]
 
             # Get components outside of region
             bus_col = [c for c in c_mga.static.columns if "bus" in c]
@@ -485,11 +487,11 @@ def prepare_regional_network(
                 # Disable extenble components outside of region
                 c_mga.static.loc[
                     outside,
-                    extendables,
+                    [f"{attr}_nom_extendable" for attr in attributes],
                 ] = False
 
             c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
-    
+
 
 def get_regional_optimal_costs(
         region: str,
@@ -499,7 +501,7 @@ def get_regional_optimal_costs(
     Get objective value for region
     """
     region_index = (slice(None), region)
-    
+
     capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")[region_index].sum()
     opex = n_opt.statistics.opex(groupby="country", groupby_method="sum")[region_index].sum()
     obj_base = capex + opex
