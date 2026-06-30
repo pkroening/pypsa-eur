@@ -451,14 +451,15 @@ def get_region_buses(
     buses_outside = buses[~mask].index
     return buses_inside, buses_outside
 
-def prepare_regional_mga(
+
+def prepare_regional_network(
         region: str,
         n_mga: pypsa.Network,
         n_opt: pypsa.Network,
-):
+    ):
     # Get buses outside of region
     if not n_mga.buses.index.equals(n_opt.buses.index):
-        raise IndexError("The buses of the optimized network and the network for mga differ unexpectedly.")
+        raise IndexError("The buses of the cost optimized network and the network for mga differ unexpectedly.")
     buses_mga_in, buses_mga_out = get_region_buses(region=region, n=n_mga)
     buses_opt_in, buses_opt_out = get_region_buses(region=region, n=n_opt)
 
@@ -488,12 +489,30 @@ def prepare_regional_mga(
                 ] = False
 
             c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
+    
 
-    # Get objective value for region
+def get_regional_optimal_costs(
+        region: str,
+        n_opt: pypsa.Network,
+    ) -> float:
+    """
+    Get objective value for region
+    """
     region_index = (slice(None), region)
+    
     capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")[region_index].sum()
     opex = n_opt.statistics.opex(groupby="country", groupby_method="sum")[region_index].sum()
     obj_base = capex + opex
+
+    return obj_base
+
+def prepare_regional_mga(
+        region: str,
+        n_mga: pypsa.Network,
+        n_opt: pypsa.Network,
+    ) -> float:
+    prepare_regional_network(region, n_mga, n_opt)
+    obj_base = get_regional_optimal_costs(region, n_opt)
     return obj_base
 
 if __name__ == "__main__":
