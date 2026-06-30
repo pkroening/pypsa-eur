@@ -480,13 +480,14 @@ def prepare_regional_network(
 
             # Get components outside of region
             bus_col = [c for c in c_mga.static.columns if "bus" in c]
-            outside = c_mga.static[bus_col].isin(buses_mga_out)
-            outside = outside[outside.any(axis="columns")].index
-            if any(outside):
+            comp_out = c_mga.static[bus_col].isin(buses_mga_out)
+            comp_out_mask = comp_out.all(axis="columns")
+            comp_out = comp_out[comp_out_mask].index
+            if any(comp_out):
 
                 # Disable extenble components outside of region
                 c_mga.static.loc[
-                    outside,
+                    comp_out,
                     [f"{attr}_nom_extendable" for attr in attributes],
                 ] = False
 
