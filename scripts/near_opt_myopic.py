@@ -139,7 +139,7 @@ def optimize_mga_fixed_bound(
                 coeffs = coeffs.reindex(n.get_extendable_i(c))
                 coeffs.index.name = ""
             elif isinstance(coeffs, pd.Series):
-                coeffs = coeffs.reindex(columns=n.components[c].static.index)
+                coeffs = coeffs.reindex(index=n.components[c].static.index)
             elif isinstance(coeffs, pd.DataFrame):
                 coeffs = coeffs.reindex(columns=n.components[c].static, index=n.snapshots)
             objective.append(m[f"{c}-{attr}"] * coeffs * sense)
@@ -474,7 +474,7 @@ def prepare_regional_network(
         for key, df_value in c_mga.dynamic.items():
             df_value.to_csv(f"temp/dynamic/{c_mga.name}-{key}-mga.csv")
 
-  
+
         # Get components outside of region
         bus_col_mga = [c for c in c_mga.static.columns if "bus" in c]
         comp_in_mga = c_mga.static[bus_col_mga].isin(buses_in)
