@@ -489,8 +489,8 @@ def prepare_regional_network(
 
         # Replace values outisde of region
         c_mga.static.loc[inter_out,:] = c_opt.static.loc[inter_out,:]
-        c_mga.static.loc[comp_out_diff_opt,:] = c_opt.static.loc[comp_out_diff_opt,:]
-        
+        c_mga.static = pd.concat([c_mga.static, c_opt.static.loc[comp_out_diff_opt,:]])
+
         if any(comp_out_mga):
             # Get extendable attribute columns
             attributes = [
