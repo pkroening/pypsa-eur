@@ -105,14 +105,14 @@ def plot_costs(smk, n_header):
 
     # new_columns = df.sum().sort_values().index
 
-    check_tech_colors(snakemake.params.plotting["tech_colors"], new_index)
-
-    fig, ax = plt.subplots(figsize=(12, 8))
-
     tech_colors = extend_tech_keys(
         smk.params.plotting["tech_colors"],
         smk.params.plotting["nice_names"],
     )
+
+    check_tech_colors(tech_colors, new_index)
+
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     df.loc[new_index].T.plot(
         kind="bar",
@@ -179,14 +179,14 @@ def plot_energy(smk, n_header):
 
     # new_columns = df.columns.sort_values()
 
-    check_tech_colors(snakemake.params.plotting["tech_colors"], new_index)
-
-    fig, ax = plt.subplots(figsize=(12, 8))
-
     tech_colors = extend_tech_keys(
         smk.params.plotting["tech_colors"],
         smk.params.plotting["nice_names"],
     )
+
+    check_tech_colors(tech_colors, new_index)
+
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     logger.debug(df.loc[new_index])
 
@@ -271,7 +271,7 @@ def plot_balances(smk, n_header):
 
         new_columns = df.columns.sort_values()
 
-        check_tech_colors(snakemake.params.plotting["tech_colors"], new_index)
+        check_tech_colors(tech_colors, new_index)
 
         fig, ax = plt.subplots(figsize=(12, 8))
 
