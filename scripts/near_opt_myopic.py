@@ -444,13 +444,12 @@ def get_region_buses(
     ) -> tuple[pd.Series]:
     if isinstance(region, str):
         region = [region]
-    buses = n.buses
-    mask = buses.index.str.startswith("EU")
-    mask += buses.index.str.contains("atmosphere")
+    mask = n.buses.index.str.startswith("EU")
+    mask += n.buses.index.str.contains("atmosphere")
     for country in region:
-        mask += (buses["country"] == country)
-    buses_inside = buses[mask].index
-    buses_outside = buses[~mask].index
+        mask += (n.buses["country"] == country)
+    buses_inside = n.buses[mask].index.to_list()
+    buses_outside = n.buses[~mask].index.to_list()
     return buses_inside, buses_outside
 
 
@@ -462,8 +461,7 @@ def prepare_regional_network(
     # Get buses outside of region
     if not n_mga.buses.index.equals(n_opt.buses.index):
         raise IndexError("The buses of the cost optimized network and the network for mga differ unexpectedly.")
-    buses_mga_in, buses_mga_out = get_region_buses(region=region, n=n_mga)
-    buses_opt_in, buses_opt_out = get_region_buses(region=region, n=n_opt)
+    buses_in, buses_out = get_region_buses(region=region, n=n_mga)
 
     for c_mga, c_opt in zip(n_mga.components, n_opt.components):
         assert c_mga.name == c_opt.name
@@ -487,9 +485,8 @@ def prepare_regional_network(
 
             # Get components outside of region
             bus_col = [c for c in c_mga.static.columns if "bus" in c]
-            comp_out = c_mga.static[bus_col].isin(buses_mga_out)
-            comp_out_mask = comp_out.all(axis="columns")
-            comp_out = comp_out[comp_out_mask].index
+            comp_in = c_mga.static[bus_col].isin(buses_in)
+            comp_out = comp_in[~comp_in.any(axis="columns")].index
             if any(comp_out):
 
                 # Disable extenble components outside of region
