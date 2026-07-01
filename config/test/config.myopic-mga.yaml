@@ -31,7 +31,7 @@ near_opt:
       Link:
         p:
           "H2 Electrolysis": 1
-  slack_initial_fraction: 0.75
+  slack_initial_fraction: 0.5
   obj_bound_scaling_factor: 1e-3
 
 plotting:
