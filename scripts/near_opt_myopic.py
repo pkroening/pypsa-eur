@@ -474,28 +474,41 @@ def prepare_regional_network(
         for key, df_value in c_mga.dynamic.items():
             df_value.to_csv(f"temp/dynamic/{c_mga.name}-{key}-mga.csv")
 
-        # Get extendable attribute columns
-        attributes = [
-            column[:-len("_nom_extendable")] for column in c_mga.static.columns
-            if "_nom_extendable" in column
-        ]
-        if any(attributes):
-            for attr in attributes:
-                c_opt.static[f"{attr}_nom"] = c_opt.static[f"{attr}_nom_opt"]
+  
+        # Get components outside of region
+        bus_col_mga = [c for c in c_mga.static.columns if "bus" in c]
+        comp_in_mga = c_mga.static[bus_col_mga].isin(buses_in)
+        comp_out_mga = comp_in_mga[~comp_in_mga.any(axis="columns")].index
+        bus_col_opt = [c for c in c_mga.static.columns if "bus" in c]
+        comp_in_opt = c_opt.static[bus_col_opt].isin(buses_in)
+        comp_out_opt = comp_in_opt[~comp_in_opt.any(axis="columns")].index
 
-            # Get components outside of region
-            bus_col = [c for c in c_mga.static.columns if "bus" in c]
-            comp_in = c_mga.static[bus_col].isin(buses_in)
-            comp_out = comp_in[~comp_in.any(axis="columns")].index
-            if any(comp_out):
+        comp_out_diff_mga = comp_out_mga.difference(comp_out_opt).to_list()
+        comp_out_diff_opt = comp_out_opt.difference(comp_out_mga).to_list()
+        inter_out = comp_out_mga.intersection(comp_out_opt).to_list()
+
+        # Replace values outisde of region
+        c_mga.static.loc[inter_out,:] = c_opt.static.loc[inter_out,:]
+        c_mga.static.loc[comp_out_diff_opt,:] = c_opt.static.loc[comp_out_diff_opt,:]
+        
+        if any(comp_out_mga):
+            # Get extendable attribute columns
+            attributes = [
+                column[:-len("_nom_extendable")] for column in c_mga.static.columns
+                if "_nom_extendable" in column
+            ]
+            if any(attributes):
+                for attr in attributes:
+                    c_opt.static[f"{attr}_nom"] = c_opt.static[f"{attr}_nom_opt"]
 
                 # Disable extenble components outside of region
                 c_mga.static.loc[
-                    comp_out,
+                    comp_out_mga,
                     [f"{attr}_nom_extendable" for attr in attributes],
-                ] = False
+                ]
 
-            c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
+
+        c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
 
 
 def get_regional_optimal_costs(
