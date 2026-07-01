@@ -257,7 +257,7 @@ def near_opt(
 
         for c in n.components:
             c.static.to_csv(f"temp/static/{c.name}-mga_opt.csv")
-            for key, df_value in c.dynamic:
+            for key, df_value in c.dynamic.items():
                 df_value.to_csv(f"temp/dynamic/{c.name}-{key}-mga_opt.csv")
 
         return n
@@ -471,9 +471,9 @@ def prepare_regional_network(
         c_opt.static.to_csv(f"temp/static/{c_opt.name}-opt.csv")
         c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga.csv")
 
-        for key, df_value in c_opt.dynamic:
+        for key, df_value in c_opt.dynamic.items():
             df_value.to_csv(f"temp/dynamic/{c_opt.name}-{key}-opt.csv")
-        for key, df_value in c_mga.dynamic:
+        for key, df_value in c_mga.dynamic.items():
             df_value.to_csv(f"temp/dynamic/{c_mga.name}-{key}-mga.csv")
 
         # Get extendable attribute columns
