@@ -271,14 +271,13 @@ def near_opt(
             "Solving possibly failed due to numerical trouble. "
             "Trying again with increased numerical focus."
         )
-        solving["solver"]["options"] = solving["solver"]["options"] + "-numeric"
+        solving["solver"]["options"] = "gurobi-numeric-focus"
         n = near_opt(
             n,
             config,
             params,
             solving,
             near_opt_config,
-            {"enable": False},  # Note: don't "aggregate twice"
             current_horizon,
             sense,
             cost_bound,
