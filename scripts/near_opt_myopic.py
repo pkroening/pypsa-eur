@@ -223,18 +223,18 @@ def near_opt(
     for c in static:
         vars = {}
         for v in static[c]:
-            w = pd.Series(0, index=n.df(c).index)
+            w = pd.Series(0, index=n.components[c].static.index)
             for carrier, const in static[c][v].items():
-                w.loc[(n.df(c).carrier == carrier) & n.df(c).p_nom_extendable] = const
+                w.loc[(n.components[c].static.carrier == carrier) & n.components[c].static.p_nom_extendable] = const
             vars[v] = w
         weights[c] = vars
     varying = near_opt_config["weights"].get("varying", {})
     for c in varying:
         vars = {}
         for v in varying[c]:
-            w = pd.DataFrame(0, columns=n.df(c).index, index=n.snapshots)
+            w = pd.DataFrame(0, columns=n.components[c].static.index, index=n.snapshots)
             for carrier, const in varying[c][v].items():
-                w.loc[:, n.df(c).carrier == carrier] = const
+                w.loc[:, n.components[c].static.carrier == carrier] = const
             w = w.multiply(n.snapshot_weightings.objective, axis=0)
             vars[v] = w
         weights[c] = vars
@@ -320,8 +320,8 @@ def disable_near_opt_components(n, near_opt_config):
             for var, carriers in variables.items():
                 for carrier in carriers:
                     # Set '{var}_nom_extendable' to False for carrier
-                    n.df(component).loc[
-                        n.df(component).carrier == carrier, f"{var}_nom_extendable"
+                    n.components[component].loc[
+                        n.components[component].carrier == carrier, f"{var}_nom_extendable"
                     ] = False
 
 
