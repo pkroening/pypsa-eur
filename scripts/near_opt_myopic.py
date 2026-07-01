@@ -521,7 +521,7 @@ def get_regional_optimal_costs(
     region_index = (slice(None), region)
 
     capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")[region_index].sum()
-    opex = n_opt.statistics.opex(groupby="country", groupby_method="sum")[region_index].sum()
+    opex = n_opt.statistics.opex().sum()
     obj_base = capex + opex
 
     return obj_base
