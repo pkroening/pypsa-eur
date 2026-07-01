@@ -500,11 +500,11 @@ def prepare_regional_network(
                 for attr in attributes:
                     c_opt.static[f"{attr}_nom"] = c_opt.static[f"{attr}_nom_opt"]
 
-                # Disable extenble components outside of region
+                # Disable extentable components outside of region
                 c_mga.static.loc[
                     comp_out_mga,
                     [f"{attr}_nom_extendable" for attr in attributes],
-                ]
+                ] = False
 
 
         c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
