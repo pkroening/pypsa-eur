@@ -1196,7 +1196,7 @@ solving:
     SAFE: false
   solver:
     name: gurobi
-    options: "gurobi-claix"
+    options: "gurobi-default"
   solver_options:
     "highs-default":
       threads: 1
@@ -1223,16 +1223,6 @@ solving:
       random_seed: 123
       run_crossover: 'off'
     "gurobi-default":
-      threads: 32
-      method: 2
-      crossover: 0
-      BarConvTol: 1.0e-05
-      Seed: 123
-      AggFill: 0
-      PreDual: 0
-      GURO_PAR_BARDENSETHRESH: 200
-      IISMethod: 1
-    "gurobi-claix":
       threads: 16
       method: 2
       crossover: 0
