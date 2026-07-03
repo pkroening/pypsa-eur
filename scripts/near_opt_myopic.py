@@ -437,15 +437,15 @@ def near_opt_try_zero(
 def get_region_buses(
     region: str | list[str],
     n: pypsa.Network,
-    ) -> tuple[pd.Series]:
+    ) -> tuple[pd.Index]:
     if isinstance(region, str):
         region = [region]
     mask = n.buses.index.str.startswith("EU")
     mask += n.buses.index.str.contains("atmosphere")
     for country in region:
         mask += (n.buses["country"] == country)
-    buses_inside = n.buses[mask].index.to_list()
-    buses_outside = n.buses[~mask].index.to_list()
+    buses_inside = n.buses[mask].index
+    buses_outside = n.buses[~mask].index
     return buses_inside, buses_outside
 
 
