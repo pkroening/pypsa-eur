@@ -24,12 +24,12 @@ pypsa.network.power_flow.logger.setLevel(logging.WARNING)
 
 
 def optimize_mga_fixed_bound(
-    n,
-    obj_bound,
-    weights,
-    sense="min",
-    obj_bound_scaling_factor=1e-3,
-    model_kwargs={},
+    n : pypsa.Network,
+    obj_bound : float,
+    weights : dict,
+    sense : str ="min",
+    obj_bound_scaling_factor : float = 1e-3,
+    model_kwargs : dict={},
     **kwargs,
 ):
     """
@@ -152,7 +152,7 @@ def optimize_mga_fixed_bound(
     n.meta["obj_bound"] = obj_bound
     n.meta["sense"] = sense
 
-    def convert_to_dict(obj):
+    def convert_to_dict(obj) -> dict:
         if isinstance(obj, pd.DataFrame):
             return obj.to_dict(orient="list")
         elif isinstance(obj, pd.Series):
@@ -167,7 +167,7 @@ def optimize_mga_fixed_bound(
     return status, condition
 
 
-def prepare_solver_options(solving):
+def prepare_solver_options(solving : dict) -> tuple[dict]:
     # The following solver setup follows that of `solve_network` in `solve_network.py`:
     set_of_options = solving["solver"]["options"]
     cf_solving = solving["options"]
@@ -203,7 +203,7 @@ def prepare_solver_options(solving):
 
 
 def near_opt(
-    n,
+    n : pypsa.Network,
     config,
     params,
     solving,
@@ -254,7 +254,7 @@ def near_opt(
         n.meta["near_opt_status"] = "success"
 
         return n
-    
+
     elif (
         (status == "warning")
         and (condition == "other")
@@ -432,8 +432,8 @@ def near_opt_try_zero(
     return None, False
 
 def get_region_buses(
-    region: str | list[str],
-    n: pypsa.Network,
+        region : list[str],
+        n : pypsa.Network,
     ) -> tuple[pd.Index]:
     if isinstance(region, str):
         region = [region]
@@ -445,12 +445,24 @@ def get_region_buses(
     buses_outside = n.buses[~mask].index
     return buses_inside, buses_outside
 
-
 def prepare_regional_network(
         region: str,
         n_mga: pypsa.Network,
         n_opt: pypsa.Network,
     ):
+    """
+    Merge the optimal network with the free region to explore alternatives.
+
+    Parameters
+    ----------
+    region : str | list[str]
+        Geographical region, where capacities of components shall be expanded in the mga
+    n_mga: pypsa.Network
+        Network to be prepared for the mga optimization
+    n_opt: pypsa.Network
+        Network of the optimal solution
+    """
+
     # Get buses outside of region
     if not n_mga.buses.index.equals(n_opt.buses.index):
         raise IndexError("The buses of the cost optimized network and the network for mga differ unexpectedly.")
