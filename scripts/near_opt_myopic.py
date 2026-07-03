@@ -247,17 +247,14 @@ def near_opt(
         model_kwargs=model_kwargs,
         **kwargs,
     )
+    # TODO: save Status
 
     if status == "ok":
         print("Solved successfully")
         n.meta["near_opt_status"] = "success"
 
-        for c in n.components:
-            c.static.to_csv(f"temp/static/{c.name}-mga_opt.csv")
-            for key, df_value in c.dynamic.items():
-                df_value.to_csv(f"temp/dynamic/{c.name}-{key}-mga_opt.csv")
-
         return n
+    
     elif (
         (status == "warning")
         and (condition == "other")
@@ -459,52 +456,52 @@ def prepare_regional_network(
         raise IndexError("The buses of the cost optimized network and the network for mga differ unexpectedly.")
     buses_in, buses_out = get_region_buses(region=region, n=n_mga)
 
+    ## Merge networks
+    components_to_skip = ["LineType"]
     for c_mga, c_opt in zip(n_mga.components, n_opt.components):
         assert c_mga.name == c_opt.name
+        if c_mga.name in components_to_skip:
+            continue
 
-        c_opt.static.to_csv(f"temp/static/{c_opt.name}-opt.csv")
-        c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga.csv")
+        # Get components inside and outside of region
+        if c_mga.name == "Bus":
+            comp_out_region_mga = buses_out
+            comp_in_region_opt = buses_in
+        else:
+            bus_col = [c for c in c_mga.static.columns if "bus" in c]
 
-        for key, df_value in c_opt.dynamic.items():
-            df_value.to_csv(f"temp/dynamic/{c_opt.name}-{key}-opt.csv")
-        for key, df_value in c_mga.dynamic.items():
-            df_value.to_csv(f"temp/dynamic/{c_mga.name}-{key}-mga.csv")
+            comp_in_region_mga = c_mga.static[bus_col].isin(buses_in)
+            comp_out_region_mga = comp_in_region_mga[~comp_in_region_mga.any(axis="columns")].index
 
+            comp_in_region_opt = c_opt.static[bus_col].isin(buses_in)
+            comp_in_region_opt = comp_in_region_opt[comp_in_region_opt.any(axis="columns")].index
 
-        # Get components outside of region
-        bus_col_mga = [c for c in c_mga.static.columns if "bus" in c]
-        comp_in_mga = c_mga.static[bus_col_mga].isin(buses_in)
-        comp_out_mga = comp_in_mga[~comp_in_mga.any(axis="columns")].index
-        bus_col_opt = [c for c in c_mga.static.columns if "bus" in c]
-        comp_in_opt = c_opt.static[bus_col_opt].isin(buses_in)
-        comp_out_opt = comp_in_opt[~comp_in_opt.any(axis="columns")].index
-
-        comp_out_diff_mga = comp_out_mga.difference(comp_out_opt).to_list()
-        comp_out_diff_opt = comp_out_opt.difference(comp_out_mga).to_list()
-        inter_out = comp_out_mga.intersection(comp_out_opt).to_list()
+        if comp_out_region_mga.intersection(comp_in_region_opt).any():
+            raise RuntimeError(f"There are components both inside and outside of the region: {comp_out_region_mga.intersection(comp_in_region_opt).to_list()}")
 
         # Replace values outisde of region
-        c_mga.static.loc[inter_out,:] = c_opt.static.loc[inter_out,:]
-        c_mga.static = pd.concat([c_mga.static, c_opt.static.loc[comp_out_diff_opt,:]])
+        n_mga.remove(c_mga.name, comp_out_region_mga)
+        n_opt.remove(c_opt.name, comp_in_region_opt)
+    n_mga.merge(n_opt, components_to_skip=components_to_skip, inplace=True, with_time=False)
 
-        if any(comp_out_mga):
-            # Get extendable attribute columns
-            attributes = [
-                column[:-len("_nom_extendable")] for column in c_mga.static.columns
-                if "_nom_extendable" in column
-            ]
-            if any(attributes):
-                for attr in attributes:
-                    c_opt.static[f"{attr}_nom"] = c_opt.static[f"{attr}_nom_opt"]
+    ## Disable extentable components outside of region
+    for c_mga in n_mga.components:
+        # Get extendable attribute columns
+        attributes = [
+            column[:-len("_nom_extendable")] for column in c_mga.static.columns
+            if "_nom_extendable" in column
+        ]
 
-                # Disable extentable components outside of region
-                c_mga.static.loc[
-                    comp_out_mga,
-                    [f"{attr}_nom_extendable" for attr in attributes],
-                ] = False
+        # Get components outside of region
+        bus_col = [c for c in c_mga.static.columns if "bus" in c]
+        comp_in_region_mga = c_mga.static[bus_col].isin(buses_in)
+        comp_out_region_mga = comp_in_region_mga[~comp_in_region_mga.any(axis="columns")].index
 
-
-        c_mga.static.to_csv(f"temp/static/{c_mga.name}-mga_mod.csv")
+        # Disable components
+        c_mga.static.loc[
+            comp_out_region_mga,
+            [f"{attr}_nom_extendable" for attr in attributes],
+        ] = False
 
 
 def get_regional_optimal_costs(
@@ -527,8 +524,8 @@ def prepare_regional_mga(
         n_mga: pypsa.Network,
         n_opt: pypsa.Network,
     ) -> float:
-    prepare_regional_network(region, n_mga, n_opt)
     obj_base = get_regional_optimal_costs(region, n_opt)
+    prepare_regional_network(region, n_mga, n_opt)
     return obj_base
 
 if __name__ == "__main__":
