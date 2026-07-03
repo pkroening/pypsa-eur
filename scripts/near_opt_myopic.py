@@ -141,7 +141,7 @@ def optimize_mga_fixed_bound(
             elif isinstance(coeffs, pd.Series):
                 coeffs = coeffs.reindex(index=n.components[c].static.index)
             elif isinstance(coeffs, pd.DataFrame):
-                coeffs = coeffs.reindex(columns=n.components[c].static, index=n.snapshots)
+                coeffs = coeffs.reindex(columns=n.components[c].static.index, index=n.snapshots)
             objective.append(m[f"{c}-{attr}"] * coeffs * sense)
 
     m.objective = merge(objective)
