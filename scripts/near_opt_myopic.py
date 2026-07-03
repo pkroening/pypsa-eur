@@ -28,7 +28,7 @@ def optimize_mga_fixed_bound(
     obj_bound,
     weights,
     sense="min",
-    obj_bound_scaling_factor=1.0,
+    obj_bound_scaling_factor=1e-3,
     model_kwargs={},
     **kwargs,
 ):
@@ -244,9 +244,6 @@ def near_opt(
         cost_bound,
         weights=weights,
         sense=sense,
-        obj_bound_scaling_factor=float(
-            near_opt_config.get("obj_bound_scaling_factor", 1.0)
-        ),
         model_kwargs=model_kwargs,
         **kwargs,
     )
