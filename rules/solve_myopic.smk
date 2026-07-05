@@ -155,31 +155,31 @@ rule solve_sector_network_myopic:
 
 rule solve_sector_network_myopic_mga:
     input:
-        network=resources("networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_brownfield.nc"),
+        network=resources("networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_brownfield.nc"),
         network_opt=RESULTS
         + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
     output:
         network=RESULTS
-        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
         config=RESULTS
-        + "configs/config.base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}.yaml",
+        + "configs/config.base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.yaml",
         model=(
             RESULTS
-            + "models/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}.nc"
+            + "models/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc"
             if config["solving"]["options"]["store_model"]
             else []
         ),
     log:
         solver=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_solver.log",
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_solver.log",
         memory=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_memory.log",
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_memory.log",
         python=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_python.log",
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_python.log",
     benchmark:
         (
             RESULTS
-            + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}"
+            + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}"
         )
     shadow:
         shadow_config

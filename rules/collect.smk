@@ -94,10 +94,9 @@ if "slack" in config["scenario"]:
                 RESULTS
                 + "networks/base_s_{clusters}_{opts}_{sector_opts}_"
                 + str(config["scenario"]["planning_horizons"][-1])
-                + "_{alt_obj}{sense}{slack}.nc",
+                + "_{sense}{slack}.nc",
                 **config["scenario"],
                 sense=["min", "max"],
-                alt_obj=config["mga"]["weights"],   # TODO fix for multirun
                 run=config["run"]["name"],
             ),
 
