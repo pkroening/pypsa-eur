@@ -1,5 +1,4 @@
 import logging
-import math
 import os
 
 import numpy as np
@@ -12,7 +11,6 @@ from _helpers import (
     update_config_from_wildcards,
 )
 from linopy import LinearExpression, QuadraticExpression, merge
-from prepare_sector_network import set_temporal_aggregation
 from pypsa.descriptors import nominal_attrs
 from solve_network import (
     extra_functionality,
@@ -304,136 +302,49 @@ def near_opt(
     )
 
 
-def disable_near_opt_components(n, near_opt_config):
-    for _, components in near_opt_config["weights"].items():
-        for component, variables in components.items():
-            for var, carriers in variables.items():
-                for carrier in carriers:
-                    # Set '{var}_nom_extendable' to False for carrier
-                    n.components[component].loc[
-                        n.components[component].carrier == carrier, f"{var}_nom_extendable"
-                    ] = False
-
-
-def near_opt_try_zero_low_res(
-    n,
-    config,
-    params,
-    planning_horizon,
-    near_opt_config,
-    kwargs,
-    cost_bound,
-):
-    # First, check on a highly aggregated version of the network if a
-    # zero objective can be achieved; use 10 time segments.
-    N = len(n.snapshot_weightings)
-    NEW_RES = 20
-    if N <= NEW_RES:
-        # If the model is already very low resolution, just answer yes
-        # to the heuristic question.
-        return True
-    else:
-        # Cut the snapshots into a few segments
-        interval = math.ceil(N / NEW_RES)
-
-        # Create bins for the index
-        bins = pd.cut(
-            range(N),
-            bins=np.arange(0, N + interval, interval),
-            right=False,
-            labels=False,
-        )
-
-        # Group by bins and sum the values
-        new_sn = n.snapshot_weightings.groupby(bins).sum()
-        new_sn.index = n.snapshot_weightings.index[::interval]
-
-        # Create a new network with the aggregated snapshots
-        m = set_temporal_aggregation(n, f"{NEW_RES}seg", new_sn)
-
-    m.config = config
-    m.params = params
-
-    # Now, remove all components listed in the near-opt config
-    disable_near_opt_components(m, near_opt_config)
-
-
-    # Solve to optimality
-    status, condition = m.optimize(**kwargs)
-
-    # Check that the total system cost is within the bounds
-    total_system_cost = m.statistics.capex().sum() + m.statistics.opex().sum()
-    if (status == "ok") and (total_system_cost <= cost_bound):
-        logger.info("Zero objective achieved with low resolution network")
-        return True
-
-    return False
-
-
-def near_opt_try_zero(
-    n,
-    config,
-    params,
-    solving,
-    planning_horizon,
-    near_opt_config,
-    cost_bound,
-):
+def calculate_slack(
+        slack_nom : float,
+        slack_initial_fraction : float,
+        current_horizon : int,
+        planning_horizons : list[int],
+    ) -> float:
     """
-    Try a fast path for near-optimal computation if the objective is zero.
+    Calculate slack for modelling to generate alternatives objective constraint
+
+    We gradually increase slack from an initial fraction of the nominal slack at the first planning horizon linearly to the full slack at the last planning horizon.
+    This is helpfull to avoid infeasible optimization problems and/or bad system designs, where the model would lean heavily in one technology in early optimizaton horizons.
+
+    Parameters
+    ----------
+    slack_nom : float
+        The nomial slack of the objective
+    slack_initial_fraction : float
+        The fraction by which is the nominal slack reduced in the first horizon
+    current_horizon : int
+        The current planning horizon year
+    planning_horizons : list[int]
+        All planing horizons for myopic foresight
+
+    Returns
+    -------
+    float
+        slack for the current horizon
     """
-    kwargs, model_kwargs = prepare_solver_options(solving)
-    del model_kwargs["transmission_losses"]
-    del model_kwargs["linearized_unit_commitment"]
-    kwargs["model_kwargs"] = model_kwargs
-
-    # First, check on a highly aggregated version of the network if a
-    # zero objective can be achieved; use 10 time segments.
-    if near_opt_try_zero_low_res(
-        n,
-        config,
-        params,
-        planning_horizon,
-        near_opt_config,
-        kwargs,
-        cost_bound,
-    ):
-        # At this point, we can try to solve the network to optimality
-        # without the near-opt components just like at low resolution;
-        # this time without temporal aggregation.
-        m = n.copy()
-
-        m.config = config
-        m.params = params
-
-        # Now, remove all components listed in the near-opt config
-        disable_near_opt_components(m, near_opt_config)
-
-        # Solve to optimality
-        status, condition = m.optimize(**kwargs)
-
-        # Check that the total system cost is within the bounds
-        total_system_cost = m.statistics.capex().sum() + m.statistics.opex().sum()
-        if (status == "ok") and (total_system_cost <= cost_bound):
-            # At this point, we have a network that is near-optimal
-            # and good enough for our purposes. Don't forget to
-            # disaggregate.
-            logger.info(
-                "Zero objective achieved by turning off components and solving to optimality"
-            )
-
-            return m, True
-    logger.info(
-        "It looks like the objective for near-opt minimisation is strictly positive."
+    planning_horizon_frac = (current_horizon - min(planning_horizons)) / (
+        max(planning_horizons) - min(planning_horizons)
     )
-    return None, False
+    slack = slack_nom * (
+        slack_initial_fraction + (1 - slack_initial_fraction) * planning_horizon_frac
+    )
+    logger.info(f"Slack for horizon {current_horizon}: {slack}")
+
+    return slack
+
 
 def get_region_buses(
         region : list[str],
         n : pypsa.Network,
     ) -> tuple[pd.Index]:
-    if isinstance(region, str):
-        region = [region]
     mask = n.buses.index.str.startswith("EU")
     mask += n.buses.index.str.contains("atmosphere")
     for country in region:
@@ -441,6 +352,7 @@ def get_region_buses(
     buses_inside = n.buses[mask].index
     buses_outside = n.buses[~mask].index
     return buses_inside, buses_outside
+
 
 def prepare_regional_network(
         region: str,
@@ -474,23 +386,23 @@ def prepare_regional_network(
 
         # Get components inside and outside of region
         if c_mga.name == "Bus":
-            comp_out_region_mga = buses_out
-            comp_in_region_opt = buses_in
+            out_region = buses_out
+            in_region_opt = buses_in
         else:
             bus_col = [c for c in c_mga.static.columns if "bus" in c]
 
-            comp_in_region_mga = c_mga.static[bus_col].isin(buses_in)
-            comp_out_region_mga = comp_in_region_mga[~comp_in_region_mga.any(axis="columns")].index
+            in_region = c_mga.static[bus_col].isin(buses_in)
+            out_region = in_region[~in_region.any(axis="columns")].index
 
-            comp_in_region_opt = c_opt.static[bus_col].isin(buses_in)
-            comp_in_region_opt = comp_in_region_opt[comp_in_region_opt.any(axis="columns")].index
+            in_region_opt = c_opt.static[bus_col].isin(buses_in)
+            in_region_opt = in_region_opt[in_region_opt.any(axis="columns")].index
 
-        if comp_out_region_mga.intersection(comp_in_region_opt).any():
-            raise RuntimeError(f"There are components both inside and outside of the region: {comp_out_region_mga.intersection(comp_in_region_opt).to_list()}")
+        if out_region.intersection(in_region_opt).any():
+            raise RuntimeError(f"There are components both inside and outside of the region: {out_region.intersection(in_region_opt).to_list()}")
 
         # Replace values outisde of region
-        n_mga.remove(c_mga.name, comp_out_region_mga)
-        n_opt.remove(c_opt.name, comp_in_region_opt)
+        n_mga.remove(c_mga.name, out_region)
+        n_opt.remove(c_opt.name, in_region_opt)
     n_mga.merge(n_opt, components_to_skip=components_to_skip, inplace=True, with_time=False)
 
     ## Disable extentable components outside of region
@@ -503,39 +415,85 @@ def prepare_regional_network(
 
         # Get components outside of region
         bus_col = [c for c in c_mga.static.columns if "bus" in c]
-        comp_in_region_mga = c_mga.static[bus_col].isin(buses_in)
-        comp_out_region_mga = comp_in_region_mga[~comp_in_region_mga.any(axis="columns")].index
+        in_region = c_mga.static[bus_col].isin(buses_in)
+        out_region = in_region[~in_region.any(axis="columns")].index
 
         # Disable components
         c_mga.static.loc[
-            comp_out_region_mga,
+            out_region,
             [f"{attr}_nom_extendable" for attr in attributes],
         ] = False
 
 
-def get_regional_optimal_costs(
-        region: str,
-        n_opt: pypsa.Network,
+def get_optimal_value(
+        region : None | list[str],
+        n_opt : pypsa.Network,
     ) -> float:
     """
-    Get objective value for region
-    """
-    region_index = (slice(None), region)
+    Get optimal objective value (for region).
 
-    capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")[region_index].sum()
-    opex = n_opt.statistics.opex().sum()
-    obj_base = capex + opex
+    Parameters
+    ----------
+    region : str | list[str]
+        Geographical region, where capacities of components shall be expanded in the mga
+    n_opt: pypsa.Network
+        Network of the optimal solution
+
+    Returns
+    -------
+    float
+        Base value for the mga near optimality constraint
+    """
+    if region:
+        # TODO: calulation using objective
+        capex = n_opt.statistics.capex(groupby="country", groupby_method="sum").loc[pd.IndexSlice[:, region]].sum()
+        opex = n_opt.statistics.opex(groupby="country", groupby_method="sum").sum()
+
+        obj_base = capex + opex
+
+    else:
+        # TODO
+        obj_base = n_opt.objective
 
     return obj_base
 
-def prepare_regional_mga(
-        region: str,
-        n_mga: pypsa.Network,
-        n_opt: pypsa.Network,
-    ) -> float:
-    obj_base = get_regional_optimal_costs(region, n_opt)
-    prepare_regional_network(region, n_mga, n_opt)
-    return obj_base
+def prepare_network_regional_mga(
+        n : pypsa.Network,
+    ):
+    """
+    Todo: content
+    """
+    region = snakemake.params.near_opt.get("region", None)
+    if isinstance(region, str):
+        region = [region]
+
+    # Load optimal network
+    n_opt = pypsa.Network(snakemake.input.network_opt)
+
+    # Get optimal value of objective and calculate slack
+    obj_base = get_optimal_value(region, n_opt)
+    slack = calculate_slack(
+        slack_nom=float(snakemake.wildcards.slack),
+        slack_initial_fraction=snakemake.params.near_opt.get("slack_initial_fraction", 1.0),
+        current_horizon=int(current_horizon),
+        planning_horizons=planning_horizons
+    )
+    obj_bound = obj_base*(1+slack)
+
+    # Prepare regional network
+    if region:
+        prepare_regional_network(region, n, n_opt)
+
+
+
+    # Add near optimality constraint
+    # TODO
+
+    # Remove optimal network
+    del n_opt
+
+    return obj_bound
+
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
@@ -552,75 +510,53 @@ if __name__ == "__main__":
             slack=0.1,
         )
 
-    # Follow `solve_network.py` for how to set up logging,
-    # configuration, etc.
+    # Set up logging, configuration, etc. (compare `solve_network.py`)
     configure_logging(snakemake)
     set_scenario_config(snakemake)
     update_config_from_wildcards(snakemake.config, snakemake.wildcards)
 
     solve_opts = snakemake.params.solving["options"]
+    cf_solving = snakemake.params.solving["options"]
 
     np.random.seed(solve_opts.get("seed", 123))
 
-    planning_horizons = snakemake.params.planning_horizons
+    # Load network
+    n = pypsa.Network(snakemake.input.network)
     current_horizon = snakemake.wildcards.planning_horizons
+    planning_horizons = snakemake.params.planning_horizons
 
-    # Prepare network to solve and get objecive bound
-    n_mga = pypsa.Network(snakemake.input.network)
+    # Prepare network
     prepare_network(
-        n=n_mga,
+        n=n,
         solve_opts=solve_opts,
         foresight="myopic",
         planning_horizons=current_horizon,
         co2_sequestration_potential=snakemake.params["co2_sequestration_potential"],
+        limit_max_growth=snakemake.params.get("sector", {}).get("limit_max_growth", None),
+        rolling_horizon=False,
     )
-    n_opt = pypsa.Network(snakemake.input.network_opt)
-    obj_base = prepare_regional_mga(snakemake.params.near_opt["region"], n_mga, n_opt)
-    del n_opt
+    print(type(snakemake))
+    obj_bound = prepare_network_regional_mga(
+        n=n,
+    )
 
-    # Calculate slack. We gradually increase slack from half the
-    # nominal slack at the first planning horizon to the full slack at
-    # the last planning horizon.
-    slack_nom = float(snakemake.wildcards.slack)
-    slack_initial_fraction = snakemake.params.near_opt.get(
-        "slack_initial_fraction", 1.0
-    )
-    planning_horizon_frac = (int(current_horizon) - min(planning_horizons)) / (
-        max(planning_horizons) - min(planning_horizons)
-    )
-    slack = slack_nom * (
-        slack_initial_fraction + (1 - slack_initial_fraction) * planning_horizon_frac
-    )
-    logger.info(f"Slack for horizon {current_horizon}: {slack}")
-
+    # Solve network
     with memory_logger(
-        filename=getattr(snakemake.log, "memory", None), interval=30.0
+        filename=getattr(snakemake.log, "memory", None),
+        interval=getattr(snakemake.config.get("solving", {}), "mem_logging_frequency", 30),
     ) as mem:
-        # Often, we can get a zero objective, and try a fast path for this.
-        fast_path_success = False
-        if snakemake.wildcards.sense == "min":
-            m, fast_path_success = near_opt_try_zero(
-                n_mga,
-                snakemake.config,
-                snakemake.params,
-                snakemake.params.solving,
-                current_horizon,
-                snakemake.params.near_opt,
-                obj_base*(1+slack),
-            )
-
-        if not fast_path_success:
-            m = near_opt(
-                n_mga,
-                snakemake.config,
-                snakemake.params,
-                snakemake.params.solving,
-                snakemake.params.near_opt,
-                current_horizon,
-                snakemake.wildcards.sense,
-                obj_base*(1+slack),
-            )
+        m = near_opt(
+            n,
+            snakemake.config,
+            snakemake.params,
+            snakemake.params.solving,
+            snakemake.params.near_opt,
+            current_horizon,
+            snakemake.wildcards.sense,
+            obj_bound,
+        )
 
     logger.info(f"Maximum memory usage: {mem.mem_usage}")
 
+    # Save solved network
     m.export_to_netcdf(snakemake.output[0])
