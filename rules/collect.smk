@@ -88,15 +88,16 @@ rule solve_sector_networks:
         "Collecting solved sector-coupled network files"
 
 if "slack" in config["scenario"]:
-    rule all_near_opt_myopic:
+    rule all_myopic_mga:
         input:
             expand(
                 RESULTS
                 + "networks/base_s_{clusters}_{opts}_{sector_opts}_"
                 + str(config["scenario"]["planning_horizons"][-1])
-                + "_{sense}{slack}.nc",
+                + "_{alt_obj}{sense}{slack}.nc",
                 **config["scenario"],
                 sense=["min", "max"],
+                alt_obj=config["mga"]["weights"],   # TODO fix for multirun
                 run=config["run"]["name"],
             ),
 

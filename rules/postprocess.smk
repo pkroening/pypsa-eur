@@ -44,18 +44,18 @@ if config["foresight"] != "perfect":
     rule plot_power_network:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             map=RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}{near_opt}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}{mga}.pdf",
         log:
             RESULTS
-            + "logs/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log",
+            + "logs/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
+                + "benchmarks/plot_power_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
             )
         threads: 2
         resources:
@@ -71,18 +71,18 @@ if config["foresight"] != "perfect":
     rule plot_hydrogen_network:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             map=RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}{near_opt}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}{mga}.pdf",
         log:
             RESULTS
-            + "logs/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log",
+            + "logs/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
+                + "benchmarks/plot_hydrogen_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
             )
         threads: 2
         resources:
@@ -98,18 +98,18 @@ if config["foresight"] != "perfect":
     rule plot_gas_network:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             map=RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}{near_opt}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}{mga}.pdf",
         log:
             RESULTS
-            + "logs/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log",
+            + "logs/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
+                + "benchmarks/plot_gas_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
             )
         threads: 2
         resources:
@@ -410,7 +410,7 @@ rule make_global_summary:
     script:
         scripts("make_global_summary.py")
 
-rule make_summary_near_opt:
+rule make_summary_mga:
     input:
         networks=expand(
             RESULTS
@@ -463,24 +463,24 @@ rule make_summary_near_opt:
             allow_missing=True,
         ),
     output:
-        nodal_costs=RESULTS + "csvs_near_opt/nodal_costs.csv",
-        nodal_capacities=RESULTS + "csvs_near_opt/nodal_capacities.csv",
-        nodal_capacity_factors=RESULTS + "csvs_near_opt/nodal_capacity_factors.csv",
-        capacity_factors=RESULTS + "csvs_near_opt/capacity_factors.csv",
-        costs=RESULTS + "csvs_near_opt/costs.csv",
-        capacities=RESULTS + "csvs_near_opt/capacities.csv",
-        curtailment=RESULTS + "csvs_near_opt/curtailment.csv",
-        energy=RESULTS + "csvs_near_opt/energy.csv",
-        energy_balance=RESULTS + "csvs_near_opt/energy_balance.csv",
-        nodal_energy_balance=RESULTS + "csvs_near_opt/nodal_energy_balance.csv",
-        prices=RESULTS + "csvs_near_opt/prices.csv",
-        weighted_prices=RESULTS + "csvs_near_opt/weighted_prices.csv",
-        market_values=RESULTS + "csvs_near_opt/market_values.csv",
-        metrics=RESULTS + "csvs_near_opt/metrics.csv",
+        nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
+        nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
+        nodal_capacity_factors=RESULTS + "csvs_mga/nodal_capacity_factors.csv",
+        capacity_factors=RESULTS + "csvs_mga/capacity_factors.csv",
+        costs=RESULTS + "csvs_mga/costs.csv",
+        capacities=RESULTS + "csvs_mga/capacities.csv",
+        curtailment=RESULTS + "csvs_mga/curtailment.csv",
+        energy=RESULTS + "csvs_mga/energy.csv",
+        energy_balance=RESULTS + "csvs_mga/energy_balance.csv",
+        nodal_energy_balance=RESULTS + "csvs_mga/nodal_energy_balance.csv",
+        prices=RESULTS + "csvs_mga/prices.csv",
+        weighted_prices=RESULTS + "csvs_mga/weighted_prices.csv",
+        market_values=RESULTS + "csvs_mga/market_values.csv",
+        metrics=RESULTS + "csvs_mga/metrics.csv",
     log:
-        logs("make_summary_near_opt.log"),
+        logs("make_summary_mga.log"),
     benchmark:
-        benchmarks("make_summary_near_opt"),
+        benchmarks("make_summary_mga"),
     threads: 2
     resources:
         mem_mb=10000,
@@ -495,7 +495,7 @@ rule make_summary_near_opt:
     message:
         "Creating global summary of near optimal optimization results"
     script:
-        scripts("make_summary_near_opt.py")
+        scripts("make_summary_mga.py")
 
 rule make_cumulative_costs:
     input:
@@ -547,15 +547,15 @@ rule plot_summary:
     script:
         scripts("plot_summary.py")
 
-rule plot_summary_near_opt:
+rule plot_summary_mga:
     input:
-        costs=RESULTS + "csvs_near_opt/costs.csv",
-        energy=RESULTS + "csvs_near_opt/energy.csv",
-        balances=RESULTS + "csvs_near_opt/energy_balance.csv",
+        costs=RESULTS + "csvs_mga/costs.csv",
+        energy=RESULTS + "csvs_mga/energy.csv",
+        balances=RESULTS + "csvs_mga/energy_balance.csv",
     output:
-        costs=RESULTS + "graphs_near_opt/costs.pdf",
-        energy=RESULTS + "graphs_near_opt/energy.pdf",
-        balances=RESULTS + "graphs_near_opt/balances-energy.pdf",
+        costs=RESULTS + "graphs_mga/costs.pdf",
+        energy=RESULTS + "graphs_mga/energy.pdf",
+        balances=RESULTS + "graphs_mga/balances-energy.pdf",
     threads: 2
     resources:
         mem_mb=10000,
@@ -571,21 +571,21 @@ rule plot_summary_near_opt:
         RDIR=RDIR,
     log:
         RESULTS
-        + "logs/plot_summary_near_opt.log",
+        + "logs/plot_summary_mga.log",
     script:
-        scripts("plot_summary_near_opt.py")
+        scripts("plot_summary_mga.py")
 
 
 rule make_all_summaries:
     input:
         expand(RESULTS + "csvs/costs.csv", run=config["run"]["name"]),
-        expand(RESULTS + "csvs_near_opt/costs.csv", run=config["run"]["name"]),
+        expand(RESULTS + "csvs_mga/costs.csv", run=config["run"]["name"]),
 
 
 rule plot_all_summaries:
     input:
         expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
-        expand(RESULTS + "graphs_near_opt/costs.pdf", run=config["run"]["name"]),
+        expand(RESULTS + "graphs_mga/costs.pdf", run=config["run"]["name"]),
 
 rule plot_balance_timeseries:
     input:

@@ -19,22 +19,22 @@ rule add_existing_baseyear:
         heating_efficiencies=resources("heating_efficiencies.csv"),
     output:
         resources(
-            "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}_brownfield.nc"
+            "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}_brownfield.nc"
         ),
     log:
         logs(
-            "add_existing_baseyear_base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log"
+            "add_existing_baseyear_base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log"
         ),
     benchmark:
         benchmarks(
-            "add_existing_baseyear/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
+            "add_existing_baseyear/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
         )
     wildcard_constraints:
         # TODO: The first planning_horizon needs to be aligned across scenarios
         # snakemake does not support passing functions to wildcard_constraints
         # reference: https://github.com/snakemake/snakemake/issues/2703
         planning_horizons=config["scenario"]["planning_horizons"][0],  #only applies to baseyear
-        near_opt=r"(_(min|max)[0-9\.]+)?",
+        mga=r"(_(min|max)[0-9\.]+)?",
     threads: 1
     resources:
         mem_mb=3000,
@@ -69,18 +69,18 @@ rule add_brownfield:
         network_p=solved_previous_horizon_myopic_mga,  #solved network at previous time step
     output:
         resources(
-            "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}_brownfield.nc"
+            "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}_brownfield.nc"
         ),
     log:
         logs(
-            "add_brownfield_base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}.log"
+            "add_brownfield_base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log"
         ),
     benchmark:
         benchmarks(
-            "add_brownfield/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{near_opt}"
+            "add_brownfield/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
         )
     wildcard_constraints:
-        near_opt=r"(_(min|max)[0-9\.]+)?",
+        mga=r"(_(min|max)[0-9\.]+)?",
     threads: 4
     resources:
         mem_mb=10000,
@@ -155,31 +155,31 @@ rule solve_sector_network_myopic:
 
 rule solve_sector_network_myopic_mga:
     input:
-        network=resources("networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_brownfield.nc"),
+        network=resources("networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_brownfield.nc"),
         network_opt=RESULTS
         + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
     output:
         network=RESULTS
-        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}.nc",
         config=RESULTS
-        + "configs/config.base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.yaml",
+        + "configs/config.base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}.yaml",
         model=(
             RESULTS
-            + "models/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc"
+            + "models/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}.nc"
             if config["solving"]["options"]["store_model"]
             else []
         ),
     log:
         solver=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_solver.log",
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_solver.log",
         memory=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_memory.log",
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_memory.log",
         python=RESULTS
-        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_python.log",
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}_python.log",
     benchmark:
         (
             RESULTS
-            + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}"
+            + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alt_obj}{sense}{slack}"
         )
     shadow:
         shadow_config
