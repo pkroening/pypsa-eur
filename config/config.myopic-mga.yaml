@@ -16,8 +16,9 @@ scenario:
   - 0.05
   - 0.1
 
-near_opt:
-  region: DE
+mga:
+  region:
+  - DE
   weights:
     varying:
       Link:

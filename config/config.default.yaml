@@ -1154,7 +1154,7 @@ solving:
       all_carriers: false
       carriers: {}
     curtailment_mode: false
-    noisy_costs: true
+    noisy_costs: false
     skip_iterations: true
     rolling_horizon: false
     seed: 123
@@ -1181,7 +1181,7 @@ solving:
         gas pipeline: 0.3
       fractional_last_unit_size: false
     keep_files: false
-    store_model: false
+    store_model: true
     model_kwargs:
       solver_dir: ""
   agg_p_nom_limits:

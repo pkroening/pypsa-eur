@@ -50,6 +50,7 @@ from scripts._helpers import (
     set_scenario_config,
     update_config_from_wildcards,
 )
+from scripts.prepare_mga_regional import prepare_mga_regional
 
 logger = logging.getLogger(__name__)
 
@@ -581,6 +582,9 @@ def prepare_network(
         n.storage_units.state_of_charge_initial = 0
         n.stores.e_cyclic = False
         n.stores.e_initial = 0
+
+    if snakemake.params.mga.get("region", None):
+        prepare_mga_regional(n, snakemake)
 
 
 def add_CCL_constraints(
@@ -1465,7 +1469,10 @@ def create_optimization_model(
 
     # Create optimization model
     logger.info("Creating optimization model...")
-    n.optimize.create_model(**model_kwargs)
+    n.optimize.create_model(
+        include_objective_constant=False, # TODO: check for correctness
+        **model_kwargs
+    )
 
     # Add extra functionality (custom constraints)
     logger.info("Adding extra functionality (custom constraints)...")
@@ -1477,12 +1484,14 @@ if __name__ == "__main__":
         from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "solve_sector_network",
-            opts="",
+            "solve_sector_network_myopic_mga",
+            configfiles="config/test/config.myopic-mga.yaml",
             clusters="5",
-            configfiles="config/test/config.overnight.yaml",
+            opts="",
             sector_opts="",
             planning_horizons="2030",
+            sense="max",
+            slack=0.1,
         )
     configure_logging(snakemake)
     set_scenario_config(snakemake)

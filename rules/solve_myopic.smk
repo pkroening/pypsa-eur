@@ -124,11 +124,17 @@ rule solve_sector_network_myopic:
             else []
         ),
     log:
-        solver=logs("base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_solver.log"),
-        memory=logs("base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_memory.log"),
-        python=logs("base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_python.log"),
+        solver=RESULTS
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_solver.log",
+        memory=RESULTS
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_memory.log",
+        python=RESULTS
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_python.log",
     benchmark:
-        benchmarks("solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}")
+        (
+            RESULTS
+            + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+        )
     shadow:
         shadow_config
     threads: solver_threads
@@ -147,20 +153,34 @@ rule solve_sector_network_myopic:
     script:
         scripts("solve_network.py")
 
-rule near_opt_myopic:
+rule solve_sector_network_myopic_mga:
     input:
         network=resources("networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_brownfield.nc"),
         network_opt=RESULTS
         + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
     output:
-        RESULTS
+        network=RESULTS
         + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
+        config=RESULTS
+        + "configs/config.base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.yaml",
+        model=(
+            RESULTS
+            + "models/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc"
+            if config["solving"]["options"]["store_model"]
+            else []
+        ),
     log:
-        solver=logs("near_opt_myopic/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_solver.log"),
-        memory=logs("near_opt_myopic/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_memory.log"),
-        python=logs("near_opt_myopic/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_python.log"),
+        solver=RESULTS
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_solver.log",
+        memory=RESULTS
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_memory.log",
+        python=RESULTS
+        + "logs/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}_python.log",
     benchmark:
-        benchmarks("solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}")
+        (
+            RESULTS
+            + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}"
+        )
     shadow:
         shadow_config
     threads: solver_threads
@@ -169,11 +189,14 @@ rule near_opt_myopic:
         runtime=config_provider("solving", "runtime", default="1d"),
     params:
         solving=config_provider("solving"),
-        near_opt=config_provider("near_opt"),
+        foresight=config_provider("foresight"),
+        mga=config_provider("mga"),
         planning_horizons=config_provider("scenario", "planning_horizons"),
         co2_sequestration_potential=config_provider(
             "sector", "co2_sequestration_potential", default=200
         ),
-        custom_extra_functionality=input_custom_extra_functionality,
+        custom_extra_functionality=scripts("prepare_mga.py"),
+    message:
+        "Solving mga sector-coupled network with myopic foresight for {wildcards.clusters} clusters, {wildcards.planning_horizons} planning horizons, {wildcards.opts} electric options and {wildcards.sector_opts} sector options"
     script:
-        scripts("near_opt_myopic.py")
+        scripts("solve_network.py")

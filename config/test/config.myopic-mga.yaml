@@ -24,8 +24,9 @@ snapshots:
   start: "2013-03-01"
   end: "2013-03-08"
 
-near_opt:
-  region: DE
+mga:
+  region:
+  - DE
   weights:
     varying:
       Link:
