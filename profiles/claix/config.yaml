@@ -85,5 +85,5 @@ show-failed-logs: False
 set-resources:
   solve_sector_network_myopic:
     slurm_partition: c23mm
-  near_opt_myopic:
+  solve_sector_network_myopic_mga:
     slurm_partition: c23mm
