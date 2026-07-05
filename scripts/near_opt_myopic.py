@@ -28,7 +28,6 @@ def optimize_mga_fixed_bound(
     obj_bound : float,
     weights : dict,
     sense : str ="min",
-    obj_bound_scaling_factor : float = 1e-3,
     model_kwargs : dict={},
     **kwargs,
 ):
@@ -82,12 +81,11 @@ def optimize_mga_fixed_bound(
 
     # create basic model
     m = n.optimize.create_model(
-        snapshots=n.snapshots,
+        include_objective_constant=False,
         **model_kwargs,
     )
 
     # build budget constraint
-    fixed_cost = n.statistics.installed_capex(groupby="country", groupby_method="sum").loc[pd.IndexSlice[:, "DE"]].sum()
     objective = m.objective
     if not isinstance(objective, (LinearExpression, QuadraticExpression)):
         objective = objective.expression
@@ -101,13 +99,12 @@ def optimize_mga_fixed_bound(
             type="budget",
             carrier_attribute="",
             sense="<=",
-            constant=obj_bound * obj_bound_scaling_factor,
+            constant=obj_bound,
         )
 
     # Add constraint to model
     m.add_constraints(
-        (objective + fixed_cost) * obj_bound_scaling_factor
-        <= obj_bound * obj_bound_scaling_factor,
+        objective <= obj_bound,
         name=f"GlobalConstraint-{name}",
     )
 
