@@ -87,7 +87,7 @@ def optimize_mga_fixed_bound(
     )
 
     # build budget constraint
-    fixed_cost = n.statistics.installed_capex().sum()
+    fixed_cost = n.statistics.installed_capex(groupby="country", groupby_method="sum").loc[pd.IndexSlice[:, "DE"]].sum()
     objective = m.objective
     if not isinstance(objective, (LinearExpression, QuadraticExpression)):
         objective = objective.expression
