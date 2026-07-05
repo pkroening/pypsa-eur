@@ -583,7 +583,7 @@ def prepare_network(
         n.stores.e_cyclic = False
         n.stores.e_initial = 0
 
-    if snakemake.params.mga.get("region", None):
+    if snakemake.params.get("mga", {}).get("region", None):
         prepare_mga_regional(n, snakemake)
 
 
