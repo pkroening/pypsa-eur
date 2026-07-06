@@ -150,9 +150,9 @@ rule solve_sector_network_myopic:
         custom_extra_functionality=input_custom_extra_functionality,
     message:
         "Solving sector-coupled network with myopic foresight for {wildcards.clusters} clusters, {wildcards.planning_horizons} planning horizons, {wildcards.opts} electric options and {wildcards.sector_opts} sector options"
+    priority: 10
     script:
         scripts("solve_network.py")
-    priority: 10
 
 rule solve_sector_network_myopic_mga:
     input:
@@ -199,6 +199,6 @@ rule solve_sector_network_myopic_mga:
         custom_extra_functionality=scripts("prepare_mga.py"),
     message:
         "Solving mga sector-coupled network with myopic foresight for {wildcards.clusters} clusters, {wildcards.planning_horizons} planning horizons, {wildcards.opts} electric options and {wildcards.sector_opts} sector options"
+    priority: 9
     script:
         scripts("solve_network.py")
-    priority: 9
