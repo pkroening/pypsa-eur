@@ -58,7 +58,8 @@ def prepare_mga_regional(
         raise IndexError("The buses of the cost optimized network and the network for mga differ unexpectedly.")
 
     ## Merge networks
-    components_to_skip = ["Carrier", "LineType", "Global Constraints"]
+    components_to_skip = n.standard_type_components
+    components_to_skip.update({"Carrier", "Global Constraints"})
     for comp, comp_opt in zip(n.components, n_opt.components):
         if comp.name != comp_opt.name:
             raise ValueError("While iterating through the component classes of the networks, different are reached.")
