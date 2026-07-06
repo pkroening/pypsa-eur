@@ -1489,7 +1489,7 @@ if __name__ == "__main__":
             clusters="5",
             opts="",
             sector_opts="",
-            planning_horizons="2030",
+            planning_horizons="2025",
             sense="max",
             slack=0.1,
         )
