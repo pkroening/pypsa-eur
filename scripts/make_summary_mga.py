@@ -47,51 +47,32 @@ def calculate_cumulative_cost(costs, planning_horizons):
     # discount cost and express them in money value of planning_horizons[0]
     for r in cumulative_cost.columns:
         cumulative_cost[r] = [
-            costs.sum()[index] / ((1 + r) ** (index[-1] - planning_horizons[0]))
+            costs.sum()[index] / ((1 + r) ** (index[3] - planning_horizons[0]))
             for index in cumulative_cost.index
         ]
 
     # integrate cost throughout the transition path
     for r in cumulative_cost.columns:
         for cluster in cumulative_cost.index.get_level_values(level=0).unique():
-            for sector_opts in cumulative_cost.index.get_level_values(
-                level=1
-            ).unique():
-                for sense in cumulative_cost.index.get_level_values(
-                    level=3
-                ).unique():
-                    for slack in cumulative_cost.index.get_level_values(
-                        level=4
-                    ).unique():
-                        cumulative_cost.loc[
-                            (
-                                cluster,
-                                sector_opts,
-                                "cumulative cost",
-                                sense,
-                                slack,
-                            ),
-                            r,
-                        ] = np.trapezoid(
-                            cumulative_cost.loc[
-                                idx[
-                                    cluster,
-                                    sector_opts,
-                                    planning_horizons,
-                                    sense,
-                                    slack,
-                                ],
-                                r,
-                            ].values,
-                            x=planning_horizons,
-                        )
+            for opts in cumulative_cost.index.get_level_values(level=1).unique():
+                for sector_opts in cumulative_cost.index.get_level_values(level=2).unique():
+                    for sense in cumulative_cost.index.get_level_values(level=4).unique():
+                        for slack in cumulative_cost.index.get_level_values(level=5).unique():
+                            # Not all cases
+                            default = bool(not sense and not slack)
+                            mga = bool(sense and slack)
+                            if mga or default:
+                                cumulative_cost.loc[(cluster, opts, sector_opts, "cumulative cost", sense, slack), r] = np.trapezoid(
+                                    x=planning_horizons,
+                                    y=cumulative_cost.loc[idx[cluster, opts, sector_opts, planning_horizons, sense, slack], r].values,
+                                )
 
     return cumulative_cost
 
 def make_summaries(networks_dict: dict) -> dict[str, pd.DataFrame]:
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(),
-        names=["cluster", "opt", "planning_horizon", "sense", "slack"],
+        names=["cluster", "opt", "sector_opt", "planning_horizon", "sense", "slack"],
     )
 
     df_dict = {output: pd.DataFrame(columns=columns, dtype=float) for output in OUTPUTS}
@@ -110,7 +91,7 @@ def make_summaries(networks_dict: dict) -> dict[str, pd.DataFrame]:
 
 
 def to_csv(df_dict: dict[str, pd.DataFrame]):
-    for key, df in df_dict.values():
+    for key, df in df_dict.items():
         df.to_csv(snakemake.output[key])
 
 
@@ -150,7 +131,7 @@ if __name__ == "__main__":
     # Networks default
     networks_dict.update(
         {
-            (cluster, opt + sector_opt, planning_horizon, None, None, None): "results/"
+            (cluster, opt, sector_opt, planning_horizon, "", ""): "results/"
             + snakemake.params.RDIR
             + f"/networks/base_s_{cluster}_{opt}_{sector_opt}_{planning_horizon}.nc"
             for cluster in snakemake.params.scenario["clusters"]
