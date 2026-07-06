@@ -11,25 +11,26 @@ import logging
 import numpy as np
 import pandas as pd
 import pypsa
-from _helpers import configure_logging, load_costs, set_scenario_config
+from _helpers import configure_logging, set_scenario_config
 from make_summary import (
+    OUTPUTS,
     assign_carriers,
     assign_locations,
     # accessed by globals()["calculate_" + output]
-    calculate_capacities,
-    calculate_capacity_factors,
-    calculate_costs,
-    calculate_curtailment,
-    calculate_energy,
-    calculate_energy_balance,
-    calculate_market_values,
-    calculate_metrics,
-    calculate_nodal_capacities,
-    calculate_nodal_capacity_factors,
-    calculate_nodal_costs,
-    calculate_nodal_energy_balance,
-    calculate_prices,
-    calculate_weighted_prices,
+    calculate_capacities,  # noqa: F401
+    calculate_capacity_factors,  # noqa: F401
+    calculate_costs,  # noqa: F401
+    calculate_curtailment,  # noqa: F401
+    calculate_energy,  # noqa: F401
+    calculate_energy_balance,  # noqa: F401
+    calculate_market_values,  # noqa: F401
+    calculate_metrics,  # noqa: F401
+    calculate_nodal_capacities,  # noqa: F401
+    calculate_nodal_capacity_factors,  # noqa: F401
+    calculate_nodal_costs,  # noqa: F401
+    calculate_nodal_energy_balance,  # noqa: F401
+    calculate_prices,  # noqa: F401
+    calculate_weighted_prices,  # noqa: F401
 )
 
 idx = pd.IndexSlice
@@ -87,30 +88,13 @@ def calculate_cumulative_cost(costs, planning_horizons):
 
     return cumulative_cost
 
-def make_summaries(networks_dict):
-    outputs = [
-        "capacities",
-        "capacity_factors",
-        "costs",
-        "curtailment",
-        "energy",
-        "market_values",
-        "metrics",
-        "nodal_capacities",
-        "nodal_capacity_factors",
-        "nodal_costs",
-        "nodal_energy_balance",
-        "prices",
-        "energy_balance",
-        "weighted_prices",
-    ]
-
+def make_summaries(networks_dict: dict) -> dict[str, pd.DataFrame]:
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(),
         names=["cluster", "opt", "planning_horizon", "sense", "slack"],
     )
 
-    df = {output: pd.DataFrame(columns=columns, dtype=float) for output in outputs}
+    df_dict = {output: pd.DataFrame(columns=columns, dtype=float) for output in OUTPUTS}
     for label, filename in networks_dict.items():
         logger.info(f"Make summary for scenario {label}, using {filename}")
 
@@ -119,28 +103,41 @@ def make_summaries(networks_dict):
         assign_carriers(n)
         assign_locations(n)
 
-        for output in outputs:
-            df[output][label] = globals()["calculate_" + output](n)
+        for output in OUTPUTS:
+            df_dict[output][label] = globals()["calculate_" + output](n)
 
-    return df
+    return df_dict
 
 
-def to_csv(df):
-    for key in df:
-        df[key].to_csv(snakemake.output[key])
+def to_csv(df_dict: dict[str, pd.DataFrame]):
+    for key, df in df_dict.values():
+        df.to_csv(snakemake.output[key])
 
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
-        from _helpers import mock_snakemake
+        from scripts._helpers import mock_snakemake
 
-        snakemake = mock_snakemake("make_summary")
+        snakemake = mock_snakemake(
+            "make_summary_mga",
+            configfiles="config/test/config.myopic-mga.yaml",
+            clusters="5",
+            opts="",
+            sector_opts="",
+            planning_horizons="2030",
+            sense="max",
+            slack=0.1,
+        )
 
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 
+    pypsa.set_option("params.statistics.nice_names", False)
+    pypsa.set_option("params.statistics.drop_zero", False)
+
+    # Networks MGA
     networks_dict = {
-        (cluster, opt + sector_opt, planning_horizon, sense, slack): "results/"
+        (cluster, opt, sector_opt, planning_horizon, sense, slack): "results/"
         + snakemake.params.RDIR
         + f"/networks/base_s_{cluster}_{opt}_{sector_opt}_{planning_horizon}_{sense}{slack}.nc"
         for cluster in snakemake.params.scenario["clusters"]
@@ -150,17 +147,28 @@ if __name__ == "__main__":
         for sense in ["min", "max"]
         for slack in snakemake.params.scenario["slack"]
     }
+    # Networks default
+    networks_dict.update(
+        {
+            (cluster, opt + sector_opt, planning_horizon, None, None, None): "results/"
+            + snakemake.params.RDIR
+            + f"/networks/base_s_{cluster}_{opt}_{sector_opt}_{planning_horizon}.nc"
+            for cluster in snakemake.params.scenario["clusters"]
+            for opt in snakemake.params.scenario["opts"]
+            for sector_opt in snakemake.params.scenario["sector_opts"]
+            for planning_horizon in snakemake.params.scenario["planning_horizons"]
+        }
+    )
 
-    costs_db = load_costs(snakemake.input.costs)
 
-    df = make_summaries(networks_dict)
+    df_dict = make_summaries(networks_dict)
 
-    df["metrics"].loc["total costs"] = df["costs"].sum()
+    df_dict["metrics"].loc["total costs"] = df_dict["costs"].sum()
 
-    to_csv(df)
+    to_csv(df_dict)
 
     if snakemake.params.foresight == "myopic":
-        cumulative_cost = calculate_cumulative_cost(df["costs"], snakemake.params.scenario["planning_horizons"])
+        cumulative_cost = calculate_cumulative_cost(df_dict["costs"], snakemake.params.scenario["planning_horizons"])
         cumulative_cost.to_csv(
             "results/" + snakemake.params.RDIR + "csvs/cumulative_cost.csv"
         )
