@@ -43,7 +43,7 @@ keep-going: True
 
 default-resources:
   slurm_account: thes2299
-  runtime: 15min
+  runtime: 12min
   threads: 1
   mem_mb: 2540
 
