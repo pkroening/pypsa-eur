@@ -8,6 +8,8 @@ import pypsa
 from linopy import LinearExpression, QuadraticExpression, merge
 from pypsa.descriptors import nominal_attrs
 
+from scripts.prepare_mga_regional import get_cross_border_components
+
 logger = logging.getLogger(__name__)
 pypsa.network.power_flow.logger.setLevel(logging.WARNING)
 
@@ -70,6 +72,14 @@ def set_mga_objective(
     # Build objective function
     obj_config = mga_config["alternative_objectives"][alternative_objective]
     weights = {}
+
+    cross_border_components = False
+    if "import" in alternative_objective:
+        region = mga_config.get("region", None)
+        if not region:
+            raise ValueError("For optimization of cross border components a region has to be defined in the mga config.")
+        cross_border_components = get_cross_border_components(mga_config.get("region", None), n)
+
     static = obj_config["weights"].get("static", {})
     for component in static:
         vars = {}
@@ -77,6 +87,8 @@ def set_mga_objective(
             w = pd.Series(0, index=n.components[component].static.index)
             for carrier, const in static[component][var].items():
                 mask = (n.components[component].static.carrier == carrier) & n.components[component].static.p_nom_extendable
+                if cross_border_components:
+                    pass
                 w.loc[mask] = const
             vars[var] = w
         weights[component] = vars
@@ -88,6 +100,8 @@ def set_mga_objective(
             w = pd.DataFrame(0, columns=static.index, index=n.snapshots)
             for carrier, const in varying[component][var].items():
                 mask = static["carrier"] == carrier    # TODO: add regional for "tech"?
+                if cross_border_components:
+                    mask = mask & cross_border_components[component]
                 w.loc[:, mask] = const
             w = w.multiply(n.snapshot_weightings.objective, axis=0)
             vars[var] = w
@@ -105,7 +119,7 @@ def set_mga_objective(
                 coeffs = coeffs.reindex(index=n.components[component].static.index)
             elif isinstance(coeffs, pd.DataFrame):
                 coeffs = coeffs.reindex(columns=n.components[component].static.index, index=n.snapshots)
-            objective.append(m[f"{c}-{attr}"] * coeffs * sense)
+            objective.append(m[f"{component}-{attr}"] * coeffs * sense)
 
     m.objective = merge(objective)
 

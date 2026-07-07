@@ -24,6 +24,7 @@ scenario:
     - 0.1
     slack_initial_fraction: 0.5
     alternative_objectives:
+      # Technology focus
       min-tech_H2_El:
         weights:
           varying:
@@ -36,5 +37,16 @@ scenario:
             Link:
               p:
                 "H2 Electrolysis": 1
+
+      # Autarky
+      min-imports_elec:
+        weights:
+          varying:
+            Link:
+              p:
+                "DC": 1
+            Line:
+              s:  # TODO
+                "AC": 1
     region:
     - DE

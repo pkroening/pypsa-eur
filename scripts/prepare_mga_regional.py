@@ -5,6 +5,45 @@ import pandas as pd
 import pypsa
 
 
+def get_cross_border_components(
+        region: list[str],
+        n: pypsa.Network
+    ) -> dict[str, pd.Index]:
+    """
+    Get components with flows across the region border
+
+    Parameters
+    ----------
+    region : list[str]
+        Countries beeing part of region
+    n : pypsa.Network
+        The PyPSA network instance
+
+    Returns
+    -------
+    dict[str, pd.Index]
+        {component name, index of cross boader components}
+    """
+    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global="inside")
+
+    cross_border_components = {}
+    for comp in n.components:
+        static  = comp.static
+
+        bus_col = [col for col in static.columns if "bus" in col]
+        if len(bus_col) <= 1:
+            cross_border_components[comp.name] = pd.Series(index=static.index)
+            continue
+
+        in_region = static[bus_col].isin(buses_in).any(axis="columns")
+        out_region = static[bus_col].isin(buses_out).any(axis="columns")
+
+        cross_border = in_region == out_region
+
+        cross_border_components[comp.name] = cross_border
+
+    return cross_border_components
+
 def get_buses_of_regions(
         n : pypsa.Network,
         region : list[str],
