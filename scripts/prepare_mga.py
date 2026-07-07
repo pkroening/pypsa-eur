@@ -71,37 +71,40 @@ def set_mga_objective(
     obj_config = mga_config["alternative_objectives"][alternative_objective]
     weights = {}
     static = obj_config["weights"].get("static", {})
-    for c in static:
+    for component in static:
         vars = {}
-        for v in static[c]:
-            w = pd.Series(0, index=n.components[c].static.index)
-            for carrier, const in static[c][v].items():
-                w.loc[(n.components[c].static.carrier == carrier) & n.components[c].static.p_nom_extendable] = const
-            vars[v] = w
-        weights[c] = vars
+        for var in static[component]:
+            w = pd.Series(0, index=n.components[component].static.index)
+            for carrier, const in static[component][var].items():
+                mask = (n.components[component].static.carrier == carrier) & n.components[component].static.p_nom_extendable
+                w.loc[mask] = const
+            vars[var] = w
+        weights[component] = vars
     varying = obj_config["weights"].get("varying", {})
-    for c in varying:
+    for component in varying:
+        static = n.components[component].static
         vars = {}
-        for v in varying[c]:
-            w = pd.DataFrame(0, columns=n.components[c].static.index, index=n.snapshots)
-            for carrier, const in varying[c][v].items():
-                w.loc[:, n.components[c].static.carrier == carrier] = const # TODO: regional
+        for var in varying[component]:
+            w = pd.DataFrame(0, columns=static.index, index=n.snapshots)
+            for carrier, const in varying[component][var].items():
+                mask = static["carrier"] == carrier    # TODO: add regional for "tech"?
+                w.loc[:, mask] = const
             w = w.multiply(n.snapshot_weightings.objective, axis=0)
-            vars[v] = w
-        weights[c] = vars
+            vars[var] = w
+        weights[component] = vars
 
     objective = []
-    for c, attrs in weights.items():
+    for component, attrs in weights.items():
         for attr, coeffs in attrs.items():
             if isinstance(coeffs, dict):
                 coeffs = pd.Series(coeffs)
-            if attr == nominal_attrs[c] and isinstance(coeffs, pd.Series):
-                coeffs = coeffs.reindex(n.get_extendable_i(c))
+            if attr == nominal_attrs[component] and isinstance(coeffs, pd.Series):
+                coeffs = coeffs.reindex(n.get_extendable_i(component))
                 coeffs.index.name = ""
             elif isinstance(coeffs, pd.Series):
-                coeffs = coeffs.reindex(index=n.components[c].static.index)
+                coeffs = coeffs.reindex(index=n.components[component].static.index)
             elif isinstance(coeffs, pd.DataFrame):
-                coeffs = coeffs.reindex(columns=n.components[c].static.index, index=n.snapshots)
+                coeffs = coeffs.reindex(columns=n.components[component].static.index, index=n.snapshots)
             objective.append(m[f"{c}-{attr}"] * coeffs * sense)
 
     m.objective = merge(objective)
@@ -228,7 +231,7 @@ def prepare_mga(
         snakemake,
     ):
     """
-    Prepare the network for a regional modelling to generate alternatives by merging with regions of the optimal network.
+    Prepare the network for modelling to generate alternatives by restricting costs and introducing a new objective method.
 
     Parameters
     ----------
