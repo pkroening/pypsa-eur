@@ -102,7 +102,7 @@ def prepare_mga_regional(
     """
     # Get region
     region = snakemake.params.mga.get("region", None)
-    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global="outside")
+    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global="inside")
 
     # Load optimal network
     n_opt = pypsa.Network(snakemake.input.network_opt)
