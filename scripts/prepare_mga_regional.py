@@ -5,9 +5,10 @@ import pandas as pd
 import pypsa
 
 
-def get_buses_of_region(
+def get_buses_of_regions(
         n : pypsa.Network,
         region : list[str],
+        with_global : None | str = None,
     ) -> tuple[pd.Index]:
     """
     Get list of buses being in- or outside of region.
@@ -18,19 +19,33 @@ def get_buses_of_region(
         Countries beeing part of region
     n : pypsa.Network
         The PyPSA network instance
+    with_global : None | str
+        Weather to include the global buses to the region, outside or none of them
 
     Returns
     -------
     tuple[pd.Index]
         buses inside, buses outside
     """
-    mask_in = n.buses.index.str.startswith("EU")
-    mask_in += n.buses.index.str.contains("atmosphere")
+    mask_glob = pd.Series(index=n.buses.index, data=False)
+    mask_glob += n.buses.index.str.startswith("EU")
+    mask_glob += n.buses.index.str.contains("atmosphere")
+
+    mask_inside = pd.Series(index=n.buses.index, data=False)
     for country in region:
-        mask_in += (n.buses["country"] == country)
-    buses_inside = n.buses[mask_in].index
-    buses_outside = n.buses[~mask_in].index
-    return buses_inside, buses_outside
+        mask_inside += (n.buses["country"] == country)
+
+    mask_outside = ~mask_inside&~mask_glob
+
+    if with_global == "inside":
+        mask_inside += mask_glob
+    elif with_global == "outside":
+        mask_outside += mask_glob
+
+    buses_inside = n.buses[mask_inside].index
+    buses_outside = n.buses[mask_outside].index
+    buses_global = n.buses[mask_glob].index
+    return buses_inside, buses_outside, buses_global
 
 
 def prepare_mga_regional(
@@ -48,9 +63,7 @@ def prepare_mga_regional(
     """
     # Get region
     region = snakemake.params.mga.get("region", None)
-    if not isinstance(region, list):
-        raise ValueError(f"Expected to get a region by a list[str] of countries in the snakemake near-optimal parameter but got {region} with the type {type(region)} instead.")
-    buses_in, buses_out = get_buses_of_region(region=region, n=n)
+    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global="outside")
 
     # Load optimal network
     n_opt = pypsa.Network(snakemake.input.network_opt)
