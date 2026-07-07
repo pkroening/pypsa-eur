@@ -56,15 +56,15 @@ def calculate_cumulative_cost(costs, planning_horizons):
         for cluster in cumulative_cost.index.get_level_values(level=0).unique():
             for opts in cumulative_cost.index.get_level_values(level=1).unique():
                 for sector_opts in cumulative_cost.index.get_level_values(level=2).unique():
-                    for sense in cumulative_cost.index.get_level_values(level=4).unique():
+                    for alt_obj in cumulative_cost.index.get_level_values(level=4).unique():
                         for slack in cumulative_cost.index.get_level_values(level=5).unique():
                             # Not all cases
-                            default = bool(not sense and not slack)
-                            mga = bool(sense and slack)
+                            default = bool(not alt_obj and not slack)
+                            mga = bool(alt_obj and slack)
                             if mga or default:
-                                cumulative_cost.loc[(cluster, opts, sector_opts, "cumulative cost", sense, slack), r] = np.trapezoid(
+                                cumulative_cost.loc[(cluster, opts, sector_opts, "cumulative cost", alt_obj, slack), r] = np.trapezoid(
                                     x=planning_horizons,
-                                    y=cumulative_cost.loc[idx[cluster, opts, sector_opts, planning_horizons, sense, slack], r].values,
+                                    y=cumulative_cost.loc[idx[cluster, opts, sector_opts, planning_horizons, alt_obj, slack], r].values,
                                 )
 
     return cumulative_cost
@@ -72,7 +72,7 @@ def calculate_cumulative_cost(costs, planning_horizons):
 def make_summaries(networks_dict: dict) -> dict[str, pd.DataFrame]:
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(),
-        names=["cluster", "opt", "sector_opt", "planning_horizon", "sense", "slack"],
+        names=["cluster", "opt", "sector_opt", "planning_horizon", "alternative_objectives", "slack"],
     )
 
     df_dict = {output: pd.DataFrame(columns=columns, dtype=float) for output in OUTPUTS}
@@ -102,12 +102,6 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "make_summary_mga",
             configfiles="config/test/config.myopic-mga.yaml",
-            clusters="5",
-            opts="",
-            sector_opts="",
-            planning_horizons="2030",
-            sense="max",
-            slack=0.1,
         )
 
     configure_logging(snakemake)
@@ -118,15 +112,15 @@ if __name__ == "__main__":
 
     # Networks MGA
     networks_dict = {
-        (cluster, opt, sector_opt, planning_horizon, sense, slack): "results/"
+        (cluster, opt, sector_opt, planning_horizon, alternative_objectives, slack): "results/"
         + snakemake.params.RDIR
-        + f"/networks/base_s_{cluster}_{opt}_{sector_opt}_{planning_horizon}_{sense}{slack}.nc"
+        + f"/networks/base_s_{cluster}_{opt}_{sector_opt}_{planning_horizon}_{alternative_objectives}_{slack}.nc"
         for cluster in snakemake.params.scenario["clusters"]
         for opt in snakemake.params.scenario["opts"]
         for sector_opt in snakemake.params.scenario["sector_opts"]
         for planning_horizon in snakemake.params.scenario["planning_horizons"]
-        for sense in ["min", "max"]
-        for slack in snakemake.params.scenario["slack"]
+        for alternative_objectives in snakemake.params.mga["alternative_objectives"].keys()
+        for slack in snakemake.params.mga["slack"]
     }
     # Networks default
     networks_dict.update(

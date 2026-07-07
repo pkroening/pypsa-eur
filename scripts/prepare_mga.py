@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 pypsa.network.power_flow.logger.setLevel(logging.WARNING)
 
 def parse_optimization_sense(
-        sense: str | int,
+        alternative_objective: str,
     ) -> int:
     """
     Parse the optimization sense to -1 or +1
@@ -27,6 +27,7 @@ def parse_optimization_sense(
     sense : int
         Optimization sense of alternate objective function
     """
+    sense = alternative_objective.split(sep="-")[0]
     if (
         isinstance(sense, str) and sense.startswith("min") or
         isinstance(sense, int) and sense > 0
@@ -45,7 +46,7 @@ def parse_optimization_sense(
 def set_mga_objective(
         n : pypsa.Network,
         mga_config : dict,
-        sense : str | int,
+        alternative_objective : str,
     ):
     """
     Set the new objective function for modelling to generate alternatives.
@@ -64,11 +65,12 @@ def set_mga_objective(
     m = n.model
 
     # Parse sense
-    sense = parse_optimization_sense(sense)
+    sense = parse_optimization_sense(alternative_objective)
 
     # Build objective function
+    obj_config = mga_config["alternative_objectives"][alternative_objective]
     weights = {}
-    static = mga_config["weights"].get("static", {})
+    static = obj_config["weights"].get("static", {})
     for c in static:
         vars = {}
         for v in static[c]:
@@ -77,7 +79,7 @@ def set_mga_objective(
                 w.loc[(n.components[c].static.carrier == carrier) & n.components[c].static.p_nom_extendable] = const
             vars[v] = w
         weights[c] = vars
-    varying = mga_config["weights"].get("varying", {})
+    varying = obj_config["weights"].get("varying", {})
     for c in varying:
         vars = {}
         for v in varying[c]:
@@ -238,8 +240,8 @@ def prepare_mga(
     snakemake
     """
     mga_config = snakemake.params.mga
-    sense = snakemake.wildcards.sense
+    alternative_objective = snakemake.wildcards.alternative_objectives
 
     set_mga_constraint(n, snakemake)
-    set_mga_objective(n, mga_config, sense)
+    set_mga_objective(n, mga_config, alternative_objective)
 

@@ -1,7 +1,8 @@
 run:
   name: "myopic-mga"
+  default_target_rule: "plot_all_summaries"
 
-foresight: "myopic"
+foresight: myopic
 
 scenario:
   planning_horizons:
@@ -11,17 +12,24 @@ scenario:
   - 2040
   - 2045
   - 2050
-  slack:
-  - 0.02
-  - 0.05
-  - 0.1
-
-mga:
-  region:
-  - DE
-  weights:
-    varying:
-      Link:
-        p:
-          "H2 Electrolysis": 1
-  slack_initial_fraction: 0.75
+  mga:
+    slack:
+    - 0.02
+    - 0.05
+    - 0.1
+    slack_initial_fraction: 0.5
+    alternative_objectives:
+      min-tech_H2_El:
+        weights:
+          varying:
+            Link:
+              p:
+                "H2 Electrolysis": 1
+      max-tech_H2_El:
+        weights:
+          varying:
+            Link:
+              p:
+                "H2 Electrolysis": 1
+    region:
+    - DE

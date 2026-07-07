@@ -414,9 +414,9 @@ rule make_summary_mga:
     input:
         networks=expand(
             RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{sense}{slack}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}.nc",
             **config["scenario"],
-            sense=["min", "max"],
+            **config["scenario"]["mga"],
             allow_missing=True,
         ),
         costs=lambda w: (
@@ -435,31 +435,31 @@ rule make_summary_mga:
         ),
         costs_plot=expand(
             RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}_{sense}{slack}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}_{alternative_objectives}_{slack}.pdf",
             **config["scenario"],
-            sense=["min", "max"],
+            **config["scenario"]["mga"],
             allow_missing=True,
         ),
         h2_plot=lambda w: expand(
             (
                 RESULTS
-                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}_{sense}{slack}.pdf"
+                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}_{alternative_objectives}_{slack}.pdf"
                 if config_provider("sector", "H2_network")(w)
                 else []
             ),
             **config["scenario"],
-            sense=["min", "max"],
+            **config["scenario"]["mga"],
             allow_missing=True,
         ),
         ch4_plot=lambda w: expand(
             (
                 RESULTS
-                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}_{sense}{slack}.pdf"
+                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}_{alternative_objectives}_{slack}.pdf"
                 if config_provider("sector", "gas_network")(w)
                 else []
             ),
             **config["scenario"],
-            sense=["min", "max"],
+            **config["scenario"]["mga"],
             allow_missing=True,
         ),
     output:
@@ -487,10 +487,8 @@ rule make_summary_mga:
     localrule: True
     params:
         foresight=config_provider("foresight"),
-        costs=config_provider("costs"),
-        snapshots=config_provider("snapshots"),
-        drop_leap_day=config_provider("enable", "drop_leap_day"),
         scenario=config_provider("scenario"),
+        mga=config_provider("scenario", "mga"),
         RDIR=RDIR,
     message:
         "Creating global summary of near optimal optimization results"
