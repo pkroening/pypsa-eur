@@ -10,29 +10,7 @@ plt.style.use("bmh")
 
 
 def plot_capacities(smk, n_header):
-    df = pd.read_csv(
-        smk.input.nodal_capacities, index_col=list(range(3)), header=list(range(n_header))
-    )
-
-    # columns = df.columns
-    # for col in df.columns:
-    #     for c in col:
-    #         if c.beginswith("Unnamed"):
-    #             c = ""
-    for i, columns in enumerate(df.columns.levels):
-        columns_new = columns.tolist()
-        for j, row in enumerate(columns_new):
-            if "Unnamed" in row:
-                columns_new[j] = ""
-        df = df.rename(columns=dict(zip(columns.tolist(), columns_new)), level=i)
-
-    clusters = df.columns.get_level_values(level=0).unique()
-    opts = df.columns.get_level_values(level=1).unique()
-    sector_opts = df.columns.get_level_values(level=2).unique()
-    planing_horizons = df.columns.get_level_values(level=3).unique()
-    objectives = df.columns.get_level_values(level=4).unique()
-    slacks = df.columns.get_level_values(level=5).unique()
-
+    # Get region
     region = tuple(smk.params.mga.get("region", None))
     region_str = ""
     for reg in region:
@@ -41,15 +19,39 @@ def plot_capacities(smk, n_header):
         else:
             region_str = reg
 
+    # Load data
+    df = pd.read_csv(
+        smk.input.nodal_capacities, index_col=list(range(3)), header=list(range(n_header))
+    )
+
+    # Handle empty columns values from cost optimal solution
+    for i, columns in enumerate(df.columns.levels):
+        columns_new = columns.tolist()
+        for j, row in enumerate(columns_new):
+            if "Unnamed" in row:
+                columns_new[j] = ""
+        df = df.rename(columns=dict(zip(columns.tolist(), columns_new)), level=i)
+
+    # Get multiindex values
+    clusters = df.columns.get_level_values(level=0).unique()
+    opts = df.columns.get_level_values(level=1).unique()
+    sector_opts = df.columns.get_level_values(level=2).unique()
+    planing_horizons = df.columns.get_level_values(level=3).unique()
+    objectives = df.columns.get_level_values(level=4).unique()
+    slacks = df.columns.get_level_values(level=5).unique()
+
+    # Iterate
     idx = pd.IndexSlice
-    done = []
+    plotted = []
     for component, location, carrier in df.index:
-        if (component, carrier) not in done and location.startswith(region):
+        if (component, carrier) not in plotted and location.startswith(region):
             for cluster in clusters:
                 for opt in opts:
                     for sector_opt in sector_opts:
 
-                        fig, axes = plt.subplots(len(objectives)-1, len(slacks)-1, figsize=(12, 8), sharex=True, sharey=True)
+                        # Plot
+                        fig, axes = plt.subplots(len(slacks)-1, figsize=(10, 5), sharex=True)
+                        y_max = 0
 
                         for alt_obj in enumerate(objectives):
 
@@ -64,26 +66,24 @@ def plot_capacities(smk, n_header):
                                         idx[cluster, opt, sector_opts, x, alt_obj[1], slack[1]]
                                     ]
                                     y = y[y.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
+                                    y_max = max(y_max, y.max())
 
                                     if default:
                                         for ax in axes.flatten():
                                             ax.plot(x, y, marker="x", color="black", label="cost optimimal")
                                     elif mga:
-                                        axes[-1, slack[0]].set_xlabel(slack[1])
-                                        axes[alt_obj[0], 0].set_ylabel(alt_obj[1])
-                                        for ax in axes[alt_obj[0],:]:
-                                            ax.plot(x, y, marker="x", label=f"{alt_obj[1]} - {slack[1]}")
-                                        for ax in axes[:,slack[0]]:
-                                            ax.plot(x, y, marker="x", label=f"{alt_obj[1]} - {slack[1]}")
+                                        axes[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
+                                        axes[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
 
                         fig.suptitle(region_str)
-                        # fig.supxlabel("Time")
+                        fig.supxlabel("Time")
                         fig.supylabel("Capacities")
                         for ax in axes.flatten():
-                            ax.legend()
-                        fig.savefig(f"results/test-sector-myopic-mga/pathways/capacities/nodal/{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg")
+                            ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+                            ax.set_ylim(0, y_max*1.1)
+                        fig.savefig(f"results/test-sector-myopic-mga/pathways/capacities/regional/{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg")
                         plt.close()
-                        done.append((component, carrier))
+                        plotted.append((component, carrier))
 
 
 
