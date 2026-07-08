@@ -9,19 +9,10 @@ logger = logging.getLogger(__name__)
 plt.style.use("bmh")
 
 
-def plot_capacities(smk, n_header):
-    # Get region
-    region = tuple(smk.params.mga.get("region", None))
-    region_str = ""
-    for reg in region:
-        if region_str:
-            region_str += f",{reg}"
-        else:
-            region_str = reg
-
+def plot_capacities(file_path, n_header, region: tuple, save_path):
     # Load data
     df = pd.read_csv(
-        smk.input.nodal_capacities, index_col=list(range(3)), header=list(range(n_header))
+        file_path, index_col=list(range(3)), header=list(range(n_header))
     )
 
     # Handle empty columns values from cost optimal solution
@@ -39,6 +30,15 @@ def plot_capacities(smk, n_header):
     planing_horizons = df.columns.get_level_values(level=3).unique()
     objectives = df.columns.get_level_values(level=4).unique()
     slacks = df.columns.get_level_values(level=5).unique()
+
+    # PLotting strings
+    region_str = ""
+    for reg in region:
+        if region_str:
+            region_str += f",{reg}"
+        else:
+            region_str = reg
+    property = file_path.split("nodal_")[1].removesuffix(".csv")
 
     # Iterate
     idx = pd.IndexSlice
@@ -77,11 +77,13 @@ def plot_capacities(smk, n_header):
 
                         fig.suptitle(region_str)
                         fig.supxlabel("Time")
-                        fig.supylabel("Capacities")
+                        fig.supylabel(property)
                         for ax in axes.flatten():
                             ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                             ax.set_ylim(0, y_max*1.1)
-                        fig.savefig(f"results/test-sector-myopic-mga/pathways/capacities/regional/{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg")
+                        path = f"{save_path}pathways/{property}"
+                        os.makedirs(path, exist_ok=True)
+                        fig.savefig(f"{path}/{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg")
                         plt.close()
                         plotted.append((component, carrier))
 
@@ -100,7 +102,16 @@ if __name__ == "__main__":
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 
+    region = tuple(snakemake.params.mga.get("region", None))
+
     n_header = 6
 
-    plot_capacities(snakemake, n_header)
+    save_path = snakemake.params.save_path
 
+
+    plot_capacities(
+        file_path=snakemake.input.nodal_capacities,
+        n_header=n_header,
+        region=region,
+        save_path=save_path,
+    )
