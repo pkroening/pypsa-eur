@@ -529,11 +529,13 @@ if "mga" in config["scenario"]:
 
     rule plot_pathways:
         input:
+            nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
             nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
         output:
             "TODO"
         params:
-            mga=config["scenario"]["mga"]
+            mga=config["scenario"]["mga"],
+            save_path=RESULTS,            
         script:
             scripts("plot_pathways.py")        
 
