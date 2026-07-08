@@ -527,6 +527,17 @@ if "mga" in config["scenario"]:
         script:
             scripts("make_summary_mga.py")
 
+    rule plot_pathways:
+        input:
+            nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
+        output:
+            "TODO"
+        params:
+            mga=config["scenario"]["mga"]
+        script:
+            scripts("plot_pathways.py")        
+
+
 
     rule make_all_summaries:
         input:
