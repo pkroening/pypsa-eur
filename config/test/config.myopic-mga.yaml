@@ -45,6 +45,9 @@ scenario:
             Link:
               p:
                 "DC": 1
+                # TODO: Check units
+                "H2 pipeline": 1
+                "gas pipeline": 1
             Line:
               s:  # TODO
                 "AC": 1
