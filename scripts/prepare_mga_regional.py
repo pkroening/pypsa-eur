@@ -8,7 +8,7 @@ import pypsa
 def get_cross_border_components(
         region: list[str],
         n: pypsa.Network
-    ) -> dict[str, pd.Index]:
+    ) -> dict[str, pd.Index | None]:
     """
     Get components with flows across the region border
 
@@ -24,7 +24,7 @@ def get_cross_border_components(
     dict[str, pd.Index]
         {component name, index of cross boader components}
     """
-    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global="inside")
+    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global=None)
 
     cross_border_components = {}
     for comp in n.components:
@@ -32,7 +32,7 @@ def get_cross_border_components(
 
         bus_col = [col for col in static.columns if "bus" in col]
         if len(bus_col) <= 1:
-            cross_border_components[comp.name] = pd.Series(index=static.index)
+            cross_border_components[comp.name] = None
             continue
 
         in_region = static[bus_col].isin(buses_in).any(axis="columns")
