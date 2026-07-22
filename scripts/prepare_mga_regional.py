@@ -38,12 +38,21 @@ def get_cross_border_components(
         in_region = static[bus_col].isin(buses_in)
         out_region = static[bus_col].isin(buses_out)
 
-        if comp.name == "Line":
-            cross_border = pd.Series(index=in_region.index, data=0)
-            cross_border.loc[in_region["bus0"] > in_region["bus1"]] = -1
-            cross_border.loc[in_region["bus0"] < in_region["bus1"]] = +1
+        if comp.name == "Line" or comp.name == "Link":
+            other_buses = bus_col
+            other_buses.remove("bus0")
+            cross_border = pd.DataFrame(index=in_region.index, columns=other_buses, data=0)
+            for b in other_buses:
+                cross_border.loc[in_region["bus0"] < in_region[b], b] = +1
+                cross_border.loc[in_region["bus0"] > in_region[b], b] = -1
+                cross_border.loc[~in_region[b] & ~out_region[b], b] = 0
+            cross_border = cross_border.sum(axis='columns')     # TODO
+            # if (cross_border > 1).any():
+            #     raise ValueError()
+
         else:
             cross_border = in_region.any(axis="columns") == out_region.any(axis="columns")
+            raise ValueError(f"Got unexpected component: {comp}")
 
         cross_border_components[comp.name] = cross_border
 
