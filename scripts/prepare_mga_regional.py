@@ -116,6 +116,12 @@ def prepare_mga_regional(
         if comp.name != comp_opt.name:
             raise ValueError("While iterating through the component classes of the networks, different are reached.")
 
+        # comp.static.to_csv(f"dev/nw_df/static/{comp.name}-pre_regio.csv")
+        # comp_opt.static.to_csv(f"dev/nw_df/static/{comp.name}-opt.csv")
+        # for _prop, _df in comp_opt.dynamic.items():
+        #     _df.to_csv(f"dev/nw_df/dynamic/{comp.name}_{_prop}-opt.csv")
+
+
         # Skip some components
         if comp.name in components_to_skip:
             continue
@@ -151,3 +157,6 @@ def prepare_mga_regional(
 
     # Delete optimal network
     del n_opt
+
+    # for comp in n.components:
+    #     comp.static.to_csv(f"dev/nw_df/static/{comp.name}-post_regio.csv")
