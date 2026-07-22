@@ -35,10 +35,15 @@ def get_cross_border_components(
             cross_border_components[comp.name] = None
             continue
 
-        in_region = static[bus_col].isin(buses_in).any(axis="columns")
-        out_region = static[bus_col].isin(buses_out).any(axis="columns")
+        in_region = static[bus_col].isin(buses_in)
+        out_region = static[bus_col].isin(buses_out)
 
-        cross_border = in_region == out_region
+        if comp.name == "Line":
+            cross_border = pd.Series(index=in_region.index, data=0)
+            cross_border.loc[in_region["bus0"] > in_region["bus1"]] = -1
+            cross_border.loc[in_region["bus0"] < in_region["bus1"]] = +1
+        else:
+            cross_border = in_region.any(axis="columns") == out_region.any(axis="columns")
 
         cross_border_components[comp.name] = cross_border
 

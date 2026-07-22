@@ -102,7 +102,12 @@ def set_mga_objective(
                 mask = static["carrier"] == carrier    # TODO: add regional for "tech"?
                 if cross_border_components:
                     mask = mask & cross_border_components[component]
-                w.loc[:, mask] = const
+                    sign = cross_border_components[component][mask]
+                    if len(sign) == 1:
+                        sign = sign.to_numpy()[0]
+                    w.loc[:, mask] = const * sign
+                else:
+                    w.loc[:, mask] = const
             w = w.multiply(n.snapshot_weightings.objective, axis=0)
             vars[var] = w
         weights[component] = vars

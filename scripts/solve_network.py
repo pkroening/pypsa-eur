@@ -1490,7 +1490,7 @@ if __name__ == "__main__":
             opts="",
             sector_opts="",
             planning_horizons="2025",
-            alternative_objectives="min-tech_H2_El",
+            alternative_objectives="min-imports_elec",
             slack=0.1,
         )
     configure_logging(snakemake)
