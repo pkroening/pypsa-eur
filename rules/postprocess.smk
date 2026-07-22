@@ -531,8 +531,8 @@ if "mga" in config["scenario"]:
         input:
             nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
             nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
-        output:
-            "TODO"
+        # output:
+        #     "TODO"
         params:
             mga=config["scenario"]["mga"],
             save_path=RESULTS,            
