@@ -8,7 +8,7 @@ import pypsa
 def get_cross_border_components(
         region: list[str],
         n: pypsa.Network
-    ) -> dict[str, pd.Index]:
+    ) -> dict[str, pd.Index | None]:
     """
     Get components with flows across the region border
 
@@ -24,7 +24,7 @@ def get_cross_border_components(
     dict[str, pd.Index]
         {component name, index of cross boader components}
     """
-    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global="inside")
+    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global=None)
 
     cross_border_components = {}
     for comp in n.components:
@@ -32,13 +32,18 @@ def get_cross_border_components(
 
         bus_col = [col for col in static.columns if "bus" in col]
         if len(bus_col) <= 1:
-            cross_border_components[comp.name] = pd.Series(index=static.index)
+            cross_border_components[comp.name] = None
             continue
 
-        in_region = static[bus_col].isin(buses_in).any(axis="columns")
-        out_region = static[bus_col].isin(buses_out).any(axis="columns")
+        in_region = static[bus_col].isin(buses_in)
+        out_region = static[bus_col].isin(buses_out)
 
-        cross_border = in_region == out_region
+        if comp.name == "Line":
+            cross_border = pd.Series(index=in_region.index, data=0)
+            cross_border.loc[in_region["bus0"] > in_region["bus1"]] = -1
+            cross_border.loc[in_region["bus0"] < in_region["bus1"]] = +1
+        else:
+            cross_border = in_region.any(axis="columns") == out_region.any(axis="columns")
 
         cross_border_components[comp.name] = cross_border
 
@@ -116,6 +121,13 @@ def prepare_mga_regional(
         if comp.name != comp_opt.name:
             raise ValueError("While iterating through the component classes of the networks, different are reached.")
 
+        # TODO: remove
+        # comp.static.sort_index().to_csv(f"dev/nw_df/static/{comp.name}-pre_regio.csv")
+        # comp_opt.static.sort_index().to_csv(f"dev/nw_df/static/{comp.name}-opt.csv")
+        # for _prop, _df in comp_opt.dynamic.items():
+        #     _df.to_csv(f"dev/nw_df/dynamic/{comp.name}_{_prop}-opt.csv")
+
+
         # Skip some components
         if comp.name in components_to_skip:
             continue
@@ -151,3 +163,7 @@ def prepare_mga_regional(
 
     # Delete optimal network
     del n_opt
+
+    # TODO: remove
+    # for comp in n.components:
+    #     comp.static.sort_index().to_csv(f"dev/nw_df/static/{comp.name}-post_regio.csv")

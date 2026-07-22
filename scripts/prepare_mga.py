@@ -70,7 +70,7 @@ def set_mga_objective(
     sense = parse_optimization_sense(alternative_objective)
 
     # Build objective function
-    obj_config = mga_config["alternative_objectives"][alternative_objective]
+    expr_config = mga_config["alternative_objectives"][alternative_objective]
     weights = {}
 
     cross_border_components = False
@@ -78,9 +78,9 @@ def set_mga_objective(
         region = mga_config.get("region", None)
         if not region:
             raise ValueError("For optimization of cross border components a region has to be defined in the mga config.")
-        cross_border_components = get_cross_border_components(mga_config.get("region", None), n)
+        cross_border_components = get_cross_border_components(region, n)
 
-    static = obj_config["weights"].get("static", {})
+    static = expr_config["weights"].get("static", {})
     for component in static:
         vars = {}
         for var in static[component]:
@@ -92,7 +92,7 @@ def set_mga_objective(
                 w.loc[mask] = const
             vars[var] = w
         weights[component] = vars
-    varying = obj_config["weights"].get("varying", {})
+    varying = expr_config["weights"].get("varying", {})
     for component in varying:
         static = n.components[component].static
         vars = {}
@@ -102,12 +102,17 @@ def set_mga_objective(
                 mask = static["carrier"] == carrier    # TODO: add regional for "tech"?
                 if cross_border_components:
                     mask = mask & cross_border_components[component]
-                w.loc[:, mask] = const
+                    sign = cross_border_components[component][mask]
+                    if len(sign) == 1:
+                        sign = sign.to_numpy()[0]
+                    w.loc[:, mask] = const * sign
+                else:
+                    w.loc[:, mask] = const
             w = w.multiply(n.snapshot_weightings.objective, axis=0)
             vars[var] = w
         weights[component] = vars
 
-    objective = []
+    new_expr = []
     for component, attrs in weights.items():
         for attr, coeffs in attrs.items():
             if isinstance(coeffs, dict):
@@ -119,9 +124,34 @@ def set_mga_objective(
                 coeffs = coeffs.reindex(index=n.components[component].static.index)
             elif isinstance(coeffs, pd.DataFrame):
                 coeffs = coeffs.reindex(columns=n.components[component].static.index, index=n.snapshots)
-            objective.append(m[f"{component}-{attr}"] * coeffs * sense)
+            new_expr.append(m[f"{component}-{attr}"] * coeffs * sense)
 
-    m.objective = merge(objective)
+    if "import" in alternative_objective:
+        flows = merge(new_expr)
+        imports = m.add_variables(
+            name="imports",
+            coords=flows.coords,
+            lower=0
+        )
+
+        name = "imports_sign"
+        if name not in n.global_constraints.index:
+            n.add(
+                "GlobalConstraint",
+                name=name,
+                type=name,
+            )
+        m.add_constraints(
+            flows - imports <= 0,
+            name=f"GlobalConstraint-{name}",
+        )
+        new_obj = imports.sum()
+
+    else:
+        new_obj = merge(new_expr)
+
+
+    m.objective = new_obj
 
     # Save meta data
     n.meta["sense"] = sense
