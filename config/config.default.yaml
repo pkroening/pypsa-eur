@@ -851,7 +851,7 @@ sector:
   SMR: true
   SMR_cc: true
   regional_oil_demand: true
-  regional_coal_demand: false
+  regional_coal_demand: true
   regional_co2_sequestration_potential:
     enable: true
     attribute:
@@ -882,7 +882,7 @@ sector:
   - onshore
   - nearshore
   methanol:
-    regional_methanol_demand: false
+    regional_methanol_demand: true
     methanol_reforming: false
     methanol_reforming_cc: false
     methanol_to_kerosene: false
