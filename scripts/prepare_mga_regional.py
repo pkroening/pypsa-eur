@@ -24,7 +24,7 @@ def get_cross_border_components(
     dict[str, pd.Index]
         {component name, index of cross boader components}
     """
-    buses_inside, buses_outside, buses_global = get_buses_of_regions(region=region, n=n, with_global=None)
+    buses_inside, buses_outside, buses_global = get_buses_of_regions(region=region, n=n, with_global="outside")
 
     cross_border_components = dict()
     connectors = ["Line", "Link"]
