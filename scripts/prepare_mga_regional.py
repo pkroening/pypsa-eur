@@ -24,21 +24,18 @@ def get_cross_border_components(
     dict[str, pd.Index]
         {component name, index of cross boader components}
     """
-    buses_in, buses_out, buses_global = get_buses_of_regions(region=region, n=n, with_global=None)
+    buses_inside, buses_outside, buses_global = get_buses_of_regions(region=region, n=n, with_global=None)
 
-    cross_border_components = {}
+    cross_border_components = dict()
+    connectors = ["Line", "Link"]
     for comp in n.components:
         static  = comp.static
 
         bus_col = [col for col in static.columns if "bus" in col]
-        if len(bus_col) <= 1:
-            cross_border_components[comp.name] = None
-            continue
+        if comp.name in connectors:
+            in_region = static[bus_col].isin(buses_inside)
+            out_region = static[bus_col].isin(buses_outside)
 
-        in_region = static[bus_col].isin(buses_in)
-        out_region = static[bus_col].isin(buses_out)
-
-        if comp.name == "Line" or comp.name == "Link":
             other_buses = bus_col
             other_buses.remove("bus0")
             cross_border = pd.DataFrame(index=in_region.index, columns=other_buses, data=0)
@@ -50,9 +47,12 @@ def get_cross_border_components(
             # if (cross_border > 1).any():
             #     raise ValueError()
 
+        elif len(bus_col) <= 1:
+            continue
+
         else:
-            cross_border = in_region.any(axis="columns") == out_region.any(axis="columns")
-            raise ValueError(f"Got unexpected component: {comp}")
+            # cross_border = in_region.any(axis="columns") == out_region.any(axis="columns")
+            raise ValueError(f"Got unexpected component that might have multiple buses: {comp}")
 
         cross_border_components[comp.name] = cross_border
 
