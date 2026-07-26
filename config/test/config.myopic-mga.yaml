@@ -12,6 +12,11 @@ snapshots:
   start: "2013-03-01"
   end: "2013-03-08"
 
+clustering:
+  temporal:
+    resolution_elec: false
+    resolution_sector: 28seg  # 7*4
+
 scenario:
   clusters:
   - 5
