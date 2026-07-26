@@ -49,7 +49,9 @@ scenario:
                 "H2 pipeline": 1
                 "gas pipeline": 1
             Line:
-              s:  # TODO
+              # In PyPSA optimization problems, AC is linearised in a way,
+              # that s represents the active power, not the apparent power.
+              s:
                 "AC": 1
     region:
     - DE
