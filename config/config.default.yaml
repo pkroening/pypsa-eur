@@ -1134,7 +1134,7 @@ adjustments:
   electricity: false
   sector:
     factor:
-      Link:
+      links:
         electricity distribution grid:
           capital_cost: 1.0
     absolute: false

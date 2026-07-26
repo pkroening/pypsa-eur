@@ -61,10 +61,10 @@ def add_build_year_to_new_assets(n: pypsa.Network, baseyear: int) -> None:
         c.static.rename(index=rename, inplace=True)
 
         # rename time-dependent
-        selection = n.component_attrs[c.name].type.str.contains(
+        selection = n.components[c.name].defaults.type.str.contains(
             "series"
-        ) & n.component_attrs[c.name].status.str.contains("Input")
-        for attr in n.component_attrs[c.name].index[selection]:
+        ) & n.components[c.name].defaults.status.str.contains("Input")
+        for attr in n.components[c.name].defaults.index[selection]:
             c.dynamic[attr] = c.dynamic[attr].rename(columns=rename)
 
 

@@ -119,10 +119,10 @@ def add_brownfield(
         n.add(c.name, c.static.index, **c.static)
 
         # copy time-dependent
-        selection = n.component_attrs[c.name].type.str.contains(
+        selection = n.components[c.name].defaults.type.str.contains(
             "series"
-        ) & n.component_attrs[c.name].status.str.contains("Input")
-        for tattr in n.component_attrs[c.name].index[selection]:
+        ) & n.components[c.name].defaults.status.str.contains("Input")
+        for tattr in n.components[c.name].defaults.index[selection]:
             # TODO: Needs to be rewritten to
             n._import_series_from_df(c.dynamic[tattr], c.name, tattr)
 

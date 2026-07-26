@@ -275,7 +275,7 @@ def calculate_energy(n, label, energy):
                 # remove values where bus is missing (bug in nomopyomo)
                 no_bus = c.static.index[c.static["bus" + port] == ""]
                 totals[no_bus] = float(
-                    n.component_attrs[c.name].loc["p" + port, "default"]
+                    n.components[c.name].defaults.loc["p" + port, "default"]
                 )
                 c_energies -= totals.T.groupby(c.static.carrier).sum().T
 
