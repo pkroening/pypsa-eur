@@ -8,7 +8,7 @@ import pypsa
 def get_cross_border_components(
         region: list[str],
         n: pypsa.Network
-    ) -> dict[str, pd.Index | None]:
+    ) -> dict[str, pd.Series | None]:
     """
     Get components with flows across the region border
 
@@ -21,40 +21,53 @@ def get_cross_border_components(
 
     Returns
     -------
-    dict[str, pd.Index]
-        {component name, index of cross boader components}
+    dict[str, pd.Series]
+        {component name, cross boader components with sign}
     """
     buses_inside, buses_outside, buses_neither = get_buses_of_regions(region=region, n=n, eu_assignment="out_region")
 
     cross_border_components = dict()
     connectors = ["Line", "Link"]
-    for comp in n.components:
-        static  = comp.static
+    for component in n.components:
 
-        bus_col = [col for col in static.columns if "bus" in col]
-        if comp.name in connectors:
-            in_region = static[bus_col].isin(buses_inside)
-            out_region = static[bus_col].isin(buses_outside)
+        bus_col = [col for col in component.static.columns if "bus" in col]
+        if component.name in connectors:
+            in_region = component.static[bus_col].isin(buses_inside)
+            out_region = component.static[bus_col].isin(buses_outside)
 
-            other_buses = bus_col
-            other_buses.remove("bus0")
-            cross_border = pd.DataFrame(index=in_region.index, columns=other_buses, data=0)
-            for b in other_buses:
-                cross_border.loc[in_region["bus0"] < in_region[b], b] = +1
-                cross_border.loc[in_region["bus0"] > in_region[b], b] = -1
-                cross_border.loc[~in_region[b] & ~out_region[b], b] = 0
-            cross_border = cross_border.sum(axis='columns')     # TODO
-            # if (cross_border > 1).any():
-            #     raise ValueError()
+            b0 = "bus0"
+            bus_col.remove(b0)
+            cross_border = pd.DataFrame(
+                index=in_region.index,
+                columns=[
+                    f"Flow: {b0} -> {b}"
+                    for b in bus_col
+                ],
+                data=0
+            )
+            for b in bus_col:
+                # Get flow directions
+                flow = f"Flow: {b0} -> {b}"
+                cross_border.loc[in_region[b0] < in_region[b], flow] = +1
+                cross_border.loc[in_region[b0] > in_region[b], flow] = -1
+                cross_border.loc[in_region[b] == out_region[b], flow] = 0
+
+            # Check
+            has_pos = (cross_border == 1).any(axis=1)
+            has_neg = (cross_border == -1).any(axis=1)
+            if (has_pos & has_neg).any():
+                raise ValueError(f"Component {component.name} has flows from {b0} to both inside and outside the given region.")
+            cross_border = pd.Series(0, index=cross_border.index)
+            cross_border[has_pos] = 1
+            cross_border[has_neg] = -1
 
         elif len(bus_col) <= 1:
             continue
 
         else:
-            # cross_border = in_region.any(axis="columns") == out_region.any(axis="columns")
-            raise ValueError(f"Got unexpected component that might have multiple buses: {comp}")
+            raise ValueError(f"Got unexpected component that might have multiple buses: {component}")
 
-        cross_border_components[comp.name] = cross_border
+        cross_border_components[component.name] = cross_border
 
     return cross_border_components
 
