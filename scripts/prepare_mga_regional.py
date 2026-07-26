@@ -32,34 +32,22 @@ def get_cross_border_components(
 
         bus_col = [col for col in component.static.columns if "bus" in col]
         if component.name in connectors:
+            # Get bools w
             in_region = component.static[bus_col].isin(buses_inside)
             out_region = component.static[bus_col].isin(buses_outside)
 
+            # Reference bus
             b0 = "bus0"
-            bus_col.remove(b0)
-            cross_border = pd.DataFrame(
-                index=in_region.index,
-                columns=[
-                    f"Flow: {b0} -> {b}"
-                    for b in bus_col
-                ],
-                data=0
-            )
-            for b in bus_col:
-                # Get flow directions
-                flow = f"Flow: {b0} -> {b}"
-                cross_border.loc[in_region[b0] < in_region[b], flow] = +1
-                cross_border.loc[in_region[b0] > in_region[b], flow] = -1
-                cross_border.loc[in_region[b] == out_region[b], flow] = 0
 
-            # Check
-            has_pos = (cross_border == 1).any(axis=1)
-            has_neg = (cross_border == -1).any(axis=1)
-            if (has_pos & has_neg).any():
-                raise ValueError(f"Component {component.name} has flows from {b0} to both inside and outside the given region.")
-            cross_border = pd.Series(0, index=cross_border.index)
-            cross_border[has_pos] = 1
-            cross_border[has_neg] = -1
+            # Get mask
+            ignore = (in_region == out_region)
+            flow_in = in_region.gt(in_region[b0], axis=0) & ~ignore
+            flow_out = in_region.lt(in_region[b0], axis=0) & ~ignore
+
+            # Get signs
+            cross_border = pd.Series(0, index=in_region.index)
+            cross_border[flow_in.any(axis="columns")] = +1
+            cross_border[flow_out.any(axis="columns")] = -1
 
         elif len(bus_col) <= 1:
             continue
