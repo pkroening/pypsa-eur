@@ -53,8 +53,9 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
 
                         # Plot
                         fig, axes = plt.subplots(len(slacks)-1, figsize=(10, 5), sharex=True)
-                        y_max = 0
+                        axes = np.atleast_1d(axes)
 
+                        y_max = 0
                         for alt_obj in enumerate(objectives):
 
                             for slack in enumerate(slacks):
@@ -135,6 +136,9 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                             fig_cap, axes_cap = plt.subplots(len(slacks)-1, figsize=(10, 5), sharex=True)
                             fig_mar, axes_mar = plt.subplots(len(slacks)-1, figsize=(10, 5), sharex=True)
                             fig_tot, axes_tot = plt.subplots(len(slacks)-1, figsize=(10, 5), sharex=True)
+                            axes_cap = np.atleast_1d(axes_cap)
+                            axes_mar = np.atleast_1d(axes_mar)
+                            axes_tot = np.atleast_1d(axes_tot)
 
                             y_cap_max = 0
                             y_mar_max = 0
