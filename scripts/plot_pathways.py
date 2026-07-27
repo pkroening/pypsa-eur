@@ -66,7 +66,7 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                                     x = planing_horizons
                                     y = df.loc[
                                         idx[component, :, carrier],
-                                        idx[cluster, opt, sector_opts, x, alt_obj[1], slack[1]]
+                                        idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
                                     ]
                                     y = y[y.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
                                     y_max = max(y_max, y.max())
@@ -155,7 +155,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                         try:
                                             y_cap = df.loc[
                                                 idx["capital", component, :, carrier],
-                                                idx[cluster, opt, sector_opts, x, alt_obj[1], slack[1]]
+                                                idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
                                             ]
                                             y_cap = y_cap[y_cap.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
                                         except KeyError:
@@ -164,7 +164,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                         try:
                                             y_mar = df.loc[
                                                 idx["marginal", component, :, carrier],
-                                                idx[cluster, opt, sector_opts, x, alt_obj[1], slack[1]]
+                                                idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
                                             ]
                                             y_mar = y_mar[y_mar.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
                                         except KeyError:
