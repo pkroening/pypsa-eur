@@ -58,23 +58,6 @@ def get_cross_border_components(
         n: pypsa.Network,
         ignore_c02: bool = True,
     ) -> dict[str, pd.Series | None]:
-    """
-    Get components with flows across the region border
-
-    Parameters
-    ----------
-    region : list[str]
-        Countries beeing part of region
-    n : pypsa.Network
-        The PyPSA network instance
-    ignore_c02 : bool = True
-        Weather to ignore flows of co2 across the border
-
-    Returns
-    -------
-    dict[str, pd.Series]
-        {component name, cross boader components with sign}
-    """
     buses_inside, buses_outside, buses_neither = get_buses_of_regions(region=region, n=n, eu_assignment="out_region")
     # ignore atmosphere and co2 flows
     if ignore_c02:
@@ -156,10 +139,7 @@ def get_variable_region_mapping(
             pd.Series(in_region.values.ravel()[mask], index=flat_labels[mask])
         )
 
-    in_region_by_label = pd.concat(in_region_by_label)
-    in_region_by_label = in_region_by_label[~in_region_by_label.index.duplicated()]
-
-    return in_region_by_label
+    return pd.concat(in_region_by_label)
 
 def split_expression_by_region(
         n : pypsa.Network,
