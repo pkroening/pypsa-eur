@@ -87,7 +87,7 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                         path = f"{save_path}pathways/{property}"
                         os.makedirs(path, exist_ok=True)
                         fig.savefig(f"{path}/{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg")
-                        plt.close()
+                        plt.close("all")
                         plotted.append((component, carrier))
 
 
@@ -202,7 +202,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                 os.makedirs(path, exist_ok=True)
                                 fig.savefig(f"{path}/{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg")
 
-                            plt.close()
+                            plt.close("all")
                             plotted.append((component, carrier))
 
 
