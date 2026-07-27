@@ -166,45 +166,33 @@ def split_expression_by_region(
         expr: LinearExpression,
         region: list[str]
     ) -> tuple[LinearExpression, LinearExpression]:
-    """
-    Split a linear expression into the parts that belong to variables of components
-    inside and outside of the region.
+    # Convert expression
+    expr_df = expr.flat
 
-    Parameters
-    ----------
-    expr : linopy.LinearExpression
-        Expression to split, e.g. the (former) objective function.
-    region : list[str]
-        Countries being part of the region.
+    # Get variables mapping
+    in_region = get_variable_region_mapping(n, region)
 
-    Returns
-    -------
-    tuple[LinearExpression, LinearExpression]
-        Expression restricted to the terms inside, and outside of the region.
-    """
-    in_region_by_label = get_variable_region_mapping(n, region)
-    expr = expr.flat
-    unattributed = ~expr["vars"].isin(in_region_by_label.index)
-    if unattributed.any():
-        raise ValueError(
-            f"{unattributed.sum()} term(s) of the expression could not be attributed "
-            "to a component with a bus and are counted as outside the region."
-        )
-    in_region_frac = expr["vars"].map(in_region_by_label).fillna(0.0).to_numpy()
-    coeffs = expr["coeffs"].to_numpy()
-    vars = expr["vars"].to_numpy()
+    # Check if all variables are in mapping
+    not_mapped = ~expr_df["vars"].isin(in_region.index)
+    if not_mapped.any():
+        raise ValueError("Some term(s) of the expression are not in regional mapping.")
 
+    # Build expressions
+    variables = expr_df["vars"].to_numpy()
+    coefficients = expr_df["coeffs"].to_numpy()
+    region_share = expr_df["vars"].map(in_region).fillna(0.0).to_numpy()
     def build_expr(coeffs: np.ndarray) -> LinearExpression:
-        keep = coeffs != 0
+        keep = (coeffs != 0)
         data = xr.Dataset(
             {
                 "coeffs": ("_term", coeffs[keep]),
-                "vars": ("_term", vars[keep]),
+                "vars": ("_term", variables[keep]),
             }
         )
         return LinearExpression(data, n.model)
 
-    return build_expr(coeffs * in_region_frac), build_expr(coeffs * (1 - in_region_frac))
+    return build_expr(coefficients * region_share), build_expr(coefficients * (1 - region_share))
+
 
 def split_df_by_region(df: pd.DataFrame, region: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
     country = df.index.get_level_values("country")
