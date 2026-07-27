@@ -49,14 +49,11 @@ scenario:
           varying:
             Link:
               p:
-                "DC": 1
-                # TODO: Check units
-                "H2 pipeline": 1
-                "gas pipeline": 1
+                # ignored
             Line:
               # In PyPSA optimization problems, AC is linearised in a way,
               # that s represents the active power, not the apparent power.
               s:
-                "AC": 1
+                # ignored
     region:
     - DE

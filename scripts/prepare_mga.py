@@ -87,8 +87,6 @@ def set_mga_objective(
             w = pd.Series(0, index=n.components[component].static.index)
             for carrier, const in static[component][var].items():
                 mask = (n.components[component].static.carrier == carrier) & n.components[component].static.p_nom_extendable
-                if cross_border_components:
-                    pass
                 w.loc[mask] = const
             vars[var] = w
         weights[component] = vars
@@ -98,16 +96,15 @@ def set_mga_objective(
         vars = {}
         for var in varying[component]:
             w = pd.DataFrame(0, columns=static.index, index=n.snapshots)
-            for carrier, const in varying[component][var].items():
-                mask = static["carrier"] == carrier    # TODO: add regional for "tech"?
-                if cross_border_components:
-                    mask = mask & cross_border_components[component]
-                    sign = pd.DataFrame(0, columns=static.index, index=n.snapshots)
-                    for col in sign.columns:
-                        sign[col] = cross_border_components[component][col]
-                    w.loc[:, mask] = const * sign.loc[:, mask]
-                else:
+
+            if cross_border_components:
+                sign = cross_border_components[component]
+                w = w.add(sign, axis=1)
+            else:
+                for carrier, const in varying[component][var].items():
+                    mask = static["carrier"] == carrier    # TODO: add regional for "tech"?
                     w.loc[:, mask] = const
+
             w = w.multiply(n.snapshot_weightings.objective, axis=0)
             vars[var] = w
         weights[component] = vars
