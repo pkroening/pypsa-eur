@@ -235,6 +235,7 @@ def set_mga_constraint(
     capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")
     capex_installed = n_opt.statistics.installed_capex(groupby="country", groupby_method="sum")
     opex = n_opt.statistics.opex(groupby="country", groupby_method="sum")
+    del n_opt
 
     # Check wether to split by region
     region = snakemake.params.mga.get("region", None)
@@ -285,8 +286,6 @@ def set_mga_constraint(
             obj_func <= obj_bound,
             name=f"GlobalConstraint-{c_name}",
         )
-
-    del n_opt
 
 def prepare_mga(
         n : pypsa.Network,
