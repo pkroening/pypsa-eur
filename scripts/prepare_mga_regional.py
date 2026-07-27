@@ -7,7 +7,8 @@ import pypsa
 
 def get_cross_border_components(
         region: list[str],
-        n: pypsa.Network
+        n: pypsa.Network,
+        ignore_c02: bool = True,
     ) -> dict[str, pd.Series | None]:
     """
     Get components with flows across the region border
@@ -18,6 +19,8 @@ def get_cross_border_components(
         Countries beeing part of region
     n : pypsa.Network
         The PyPSA network instance
+    ignore_c02 : bool = True
+        Weather to ignore flows of co2 across the border
 
     Returns
     -------
@@ -25,6 +28,13 @@ def get_cross_border_components(
         {component name, cross boader components with sign}
     """
     buses_inside, buses_outside, buses_neither = get_buses_of_regions(region=region, n=n, eu_assignment="out_region")
+    # ignore atmosphere and co2 flows
+    if ignore_c02:
+        for pat in ("atmosphere", "co2"):
+            buses_inside = buses_inside.append(
+                n.buses[n.buses.index.str.contains(pat)].index
+            )
+        buses_inside = buses_inside.drop_duplicates()
 
     cross_border_components = dict()
     connectors = ["Line", "Link"]
