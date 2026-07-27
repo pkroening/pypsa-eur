@@ -1,9 +1,57 @@
 # SPDX-FileCopyrightText: : 2026 - Peter Kröning
 #
 # SPDX-License-Identifier: MIT
+import numpy as np
 import pandas as pd
 import pypsa
+import xarray as xr
+from linopy import LinearExpression
 
+
+# Regional utils
+def get_buses_of_regions(
+        n : pypsa.Network,
+        region : list[str],
+        eu_assignment : None | str = None,
+    ) -> tuple[pd.Index]:
+    """
+    Get list of buses being in- or outside of region.
+
+    Parameters
+    ----------
+    region : list[str]
+        Countries beeing part of region
+    n : pypsa.Network
+        The PyPSA network instance
+    eu_assignment : None | str
+        Weather to assign the eu buses to the region, outside, both or none of them
+
+    Returns
+    -------
+    tuple[pd.Index]
+        buses inside, buses outside
+    """
+    # Get masks
+    mask_eu = (n.buses["location"] == "EU")
+
+    mask_inside = pd.Series(index=n.buses.index, data=False)
+    for country in region:
+        mask_inside += (n.buses["country"] == country)
+
+
+    mask_outside = ~mask_inside & ~mask_eu
+
+    # Assign eu
+    if eu_assignment == "in_region" or eu_assignment == "both":
+        mask_inside += mask_eu
+    if eu_assignment == "out_region" or eu_assignment == "both":
+        mask_outside += mask_eu
+
+    # Get buses
+    buses_inside = n.buses[mask_inside].index
+    buses_outside = n.buses[mask_outside].index
+    buses_neither = n.buses[~mask_inside & ~mask_outside].index
+    return buses_inside, buses_outside, buses_neither
 
 def get_cross_border_components(
         region: list[str],
@@ -69,51 +117,102 @@ def get_cross_border_components(
 
     return cross_border_components
 
-def get_buses_of_regions(
+def get_variable_region_mapping(
         n : pypsa.Network,
-        region : list[str],
-        eu_assignment : None | str = None,
-    ) -> tuple[pd.Index]:
+        region: list[str]
+    ) -> pd.Series:
+
+    buses_in, buses_out, buses_neither = get_buses_of_regions(region=region, n=n, eu_assignment="out_region")
+    cross_border_components = get_cross_border_components(region, n)
+
+    # Determine variable label region mapping
+    in_region_by_label = []
+    for var_name, variable in n.model.variables.items():
+        # Get component corresponding to variable
+        comp = var_name.split("-")[0]
+        comp = n.components[comp]
+
+        # Get region information
+        bus0 = "bus" if "bus" in comp.static.columns else "bus0"
+        in_region = comp.static[bus0].isin(buses_in).astype(float)
+
+        cbc = cross_border_components.get(comp.name, None)
+        if cbc is not None:
+            in_region[cbc != 0] = 0.5
+
+        # Get labels
+        labels = variable.labels
+
+        in_region = xr.DataArray(
+            in_region.reindex(labels.coords["name"].values).to_numpy(),
+            coords={"name": labels.coords["name"]},
+            dims=["name"],
+        )
+        in_region, labels = xr.broadcast(in_region, labels)
+
+        flat_labels = labels.values.flatten()
+        mask = (flat_labels != -1)
+        in_region_by_label.append(
+            pd.Series(in_region.values.ravel()[mask], index=flat_labels[mask])
+        )
+
+    in_region_by_label = pd.concat(in_region_by_label)
+    in_region_by_label = in_region_by_label[~in_region_by_label.index.duplicated()]
+
+    return in_region_by_label
+
+def split_expression_by_region(
+        n : pypsa.Network,
+        expr: LinearExpression,
+        region: list[str]
+    ) -> tuple[LinearExpression, LinearExpression]:
     """
-    Get list of buses being in- or outside of region.
+    Split a linear expression into the parts that belong to variables of components
+    inside and outside of the region.
 
     Parameters
     ----------
+    expr : linopy.LinearExpression
+        Expression to split, e.g. the (former) objective function.
     region : list[str]
-        Countries beeing part of region
-    n : pypsa.Network
-        The PyPSA network instance
-    eu_assignment : None | str
-        Weather to assign the eu buses to the region, outside, both or none of them
+        Countries being part of the region.
 
     Returns
     -------
-    tuple[pd.Index]
-        buses inside, buses outside
+    tuple[LinearExpression, LinearExpression]
+        Expression restricted to the terms inside, and outside of the region.
     """
-    # Get masks
-    mask_eu = (n.buses["location"] == "EU")
+    in_region_by_label = get_variable_region_mapping(n, region)
+    expr = expr.flat
+    unattributed = ~expr["vars"].isin(in_region_by_label.index)
+    if unattributed.any():
+        raise ValueError(
+            f"{unattributed.sum()} term(s) of the expression could not be attributed "
+            "to a component with a bus and are counted as outside the region."
+        )
+    in_region_frac = expr["vars"].map(in_region_by_label).fillna(0.0).to_numpy()
+    coeffs = expr["coeffs"].to_numpy()
+    vars = expr["vars"].to_numpy()
 
-    mask_inside = pd.Series(index=n.buses.index, data=False)
-    for country in region:
-        mask_inside += (n.buses["country"] == country)
+    def build_expr(coeffs: np.ndarray) -> LinearExpression:
+        keep = coeffs != 0
+        data = xr.Dataset(
+            {
+                "coeffs": ("_term", coeffs[keep]),
+                "vars": ("_term", vars[keep]),
+            }
+        )
+        return LinearExpression(data, n.model)
+
+    return build_expr(coeffs * in_region_frac), build_expr(coeffs * (1 - in_region_frac))
+
+def split_df_by_region(df: pd.DataFrame, region: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    country = df.index.get_level_values("country")
+    in_mask = country.isin(region)
+    return df.loc[in_mask], df.loc[~in_mask]
 
 
-    mask_outside = ~mask_inside & ~mask_eu
-
-    # Assign eu
-    if eu_assignment == "in_region" or eu_assignment == "both":
-        mask_inside += mask_eu
-    if eu_assignment == "out_region" or eu_assignment == "both":
-        mask_outside += mask_eu
-
-    # Get buses
-    buses_inside = n.buses[mask_inside].index
-    buses_outside = n.buses[mask_outside].index
-    buses_neither = n.buses[~mask_inside & ~mask_outside].index
-    return buses_inside, buses_outside, buses_neither
-
-
+# Prepare network
 def prepare_mga_regional(
         n : pypsa.Network,
         snakemake,
