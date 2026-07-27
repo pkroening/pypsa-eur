@@ -34,12 +34,7 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
     slacks = df.columns.get_level_values(level=5).unique()
 
     # PLotting strings
-    region_str = ""
-    for reg in region:
-        if region_str:
-            region_str += f",{reg}"
-        else:
-            region_str = reg
+    region_str = ",".join(region)
     property = file_path.split("nodal_")[1].removesuffix(".csv")
 
     # Iterate
@@ -114,12 +109,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
     slacks = df.columns.get_level_values(level=5).unique()
 
     # PLotting strings
-    region_str = ""
-    for reg in region:
-        if region_str:
-            region_str += f",{reg}"
-        else:
-            region_str = reg
+    region_str = ",".join(region)
     property = file_path.split("nodal_")[1].removesuffix(".csv")
 
     # Iterate
