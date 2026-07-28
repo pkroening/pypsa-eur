@@ -148,6 +148,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
     # PLotting strings
     region_str = ",".join(region)
     prop = file_path.split("nodal_")[1].removesuffix(".csv")
+    slack_range = max([float(s) for s in slacks if s])
 
     # Iterate
     idx = pd.IndexSlice
@@ -189,7 +190,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                     ]
                                     y_cap = y_cap[y_cap.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
                                 except KeyError:
-                                    y_cap = np.zeros_like(x)
+                                    y_cap = np.zeros(len(x))
 
                                 try:
                                     y_mar = df.loc[
@@ -198,7 +199,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                     ]
                                     y_mar = y_mar[y_mar.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
                                 except KeyError:
-                                    y_mar = np.zeros_like(x)
+                                    y_mar = np.zeros(len(x))
                                 y_tot = y_cap + y_mar
 
                                 # Update y_max
@@ -209,17 +210,24 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                 if default:
                                     for axes, y in [(axes_cap_sla, y_cap), (axes_mar_sla, y_mar), (axes_tot_sla, y_tot)]:
                                         for ax in axes.flatten():
-                                            ax.plot(x, y, marker="x", color="black", label="cost optimal")
+                                            ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
                                     for axes, y in [(axes_cap_obj, y_cap), (axes_mar_obj, y_mar), (axes_tot_obj, y_tot)]:
                                         for ax in axes.flatten():
-                                            ax.plot(x, y, marker="x", color="black", label="cost optimal")
+                                            ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
                                 elif mga:
                                     for axes, y in [(axes_cap_sla, y_cap), (axes_mar_sla, y_mar), (axes_tot_sla, y_tot)]:
                                         axes[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
                                         axes[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
+
+                                    # Darker/more opaque and on top the closer the slack is to cost optimal
+                                    slack_val = float(slack[1])
+                                    color = plt.cm.Oranges(0.85 - 0.5 * slack_val / slack_range)
+                                    zorder = 2 + 0.01 * 0.9 * (1 - slack_val / slack_range)
+
                                     for axes, y in [(axes_cap_obj, y_cap), (axes_mar_obj, y_mar), (axes_tot_obj, y_tot)]:
                                         axes[alt_obj[0]].set_ylabel(alt_obj[1])
-                                        axes[alt_obj[0]].plot(x, y, marker="x", label=f"s={float(slack[1]):.0%}")
+                                        axes[alt_obj[0]].fill_between(x, 0, y, color=color, alpha=0.4, zorder=zorder)
+                                        axes[alt_obj[0]].plot(x, y, marker="x", color=color, label=f"s={slack_val:.0%}", zorder=zorder)
 
                     filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg"
                     for subdir, fig, axes, y_max, n in [
