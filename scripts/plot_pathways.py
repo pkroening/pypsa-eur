@@ -132,7 +132,7 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                                     axes_obj[alt_obj[0]].plot(x, y, marker="x", color=color, label=f"s={slack_val:.0%}", zorder=zorder)
 
                     # Save file
-                    filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg"
+                    filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.png"
                     for subdir, view_fig, view_axes in [
                         ("comp_obj", fig_sla, axes_sla),
                         ("comp_slack", fig_obj, axes_obj)
@@ -246,7 +246,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                         axes[alt_obj[0]].fill_between(x, 0, y, color=color, alpha=0.4, zorder=zorder)
                                         axes[alt_obj[0]].plot(x, y, marker="x", color=color, label=f"s={slack_val:.0%}", zorder=zorder)
 
-                    filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg"
+                    filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.png"
                     for subdir, fig, axes, y_max, n in [
                         ("comp_obj", fig_cap_sla, axes_cap_sla, y_cap_max, "capital"),
                         ("comp_obj", fig_mar_sla, axes_mar_sla, y_mar_max, "marginal"),
@@ -276,7 +276,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                         scenario_label = alt_obj[1] if alt_obj[1] else "cost-optimal"
                         slack_label = f"s{slack[1]}" if slack[1] else "s0"
                         title = f"{region_str} - {scenario_label} {slack_label}"
-                        filename = f"{cluster}_{opt}_{sector_opt}-{scenario_label}_{slack_label}_{region_str}.svg"
+                        filename = f"{cluster}_{opt}_{sector_opt}-{scenario_label}_{slack_label}_{region_str}.png"
 
                         x = planning_horizons
                         for name, ys in [
