@@ -231,7 +231,7 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "plot_pathways",
-            configfiles="config/config.myopic-mga.yaml",
+            configfiles="config/test/config.myopic-mga.yaml",
         )
 
     configure_logging(snakemake)
