@@ -4,6 +4,7 @@
 
 wildcard_constraint_mga = r"(_(min|max)-.{4,12}_[0-9\.]+)?"
 
+
 rule add_existing_baseyear:
     input:
         network=resources(
@@ -136,6 +137,7 @@ rule solve_sector_network_myopic:
             RESULTS
             + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
         )
+    priority: 10
     shadow:
         shadow_config
     threads: solver_threads
@@ -151,13 +153,15 @@ rule solve_sector_network_myopic:
         custom_extra_functionality=input_custom_extra_functionality,
     message:
         "Solving sector-coupled network with myopic foresight for {wildcards.clusters} clusters, {wildcards.planning_horizons} planning horizons, {wildcards.opts} electric options and {wildcards.sector_opts} sector options"
-    priority: 10
     script:
         scripts("solve_network.py")
 
+
 rule solve_sector_network_myopic_mga:
     input:
-        network=resources("networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}_brownfield.nc"),
+        network=resources(
+            "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}_brownfield.nc"
+        ),
         network_opt=RESULTS
         + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
     output:
@@ -183,6 +187,7 @@ rule solve_sector_network_myopic_mga:
             RESULTS
             + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}"
         )
+    priority: 9
     shadow:
         shadow_config
     threads: solver_threads
@@ -200,6 +205,5 @@ rule solve_sector_network_myopic_mga:
         custom_extra_functionality=scripts("prepare_mga.py"),
     message:
         "Solving mga sector-coupled network with myopic foresight for {wildcards.clusters} clusters, {wildcards.planning_horizons} planning horizons, {wildcards.opts} electric options and {wildcards.sector_opts} sector options"
-    priority: 9
     script:
         scripts("solve_network.py")

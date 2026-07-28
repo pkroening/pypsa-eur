@@ -1470,8 +1470,8 @@ def create_optimization_model(
     # Create optimization model
     logger.info("Creating optimization model...")
     n.optimize.create_model(
-        include_objective_constant=False, # TODO: check for correctness
-        **model_kwargs
+        include_objective_constant=False,  # TODO: check for correctness
+        **model_kwargs,
     )
 
     # Add extra functionality (custom constraints)

@@ -39,7 +39,7 @@ retries: 0
 latency-wait: 5
 
 # Keep going with independent jobs even if some jobs fail.
-keep-going: True
+keep-going: true
 
 default-resources:
   slurm_account: thes2299
@@ -63,20 +63,20 @@ slurm-partition-config: partitions.yaml
 # in the job script).
 # ---------------------------------------------------------------------------
 slurm-logdir: "/home/$USER/.snakemake/slurm_logs"
-slurm-keep-successful-logs: True
-slurm-efficiency-report: True
+slurm-keep-successful-logs: true
+slurm-efficiency-report: true
 slurm-efficiency-report-path: "/home/$USER/.snakemake/slurm_eff_reports"
 
 # ---------------------------------------------------------------------------
 # Rerun behaviour
 # ---------------------------------------------------------------------------
-rerun-incomplete: True
+rerun-incomplete: true
 
 # ---------------------------------------------------------------------------
 # Reporting / verbosity
 # ---------------------------------------------------------------------------
-printshellcmds: False
-show-failed-logs: False
+printshellcmds: false
+show-failed-logs: false
 
 
 # ---------------------------------------------------------------------------

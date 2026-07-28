@@ -76,6 +76,7 @@ def check_tech_colors(tech_colors, keys):
             f"The following technology carrier(s) do not have a defined color in the plotting configuration: {missing}"
         )
 
+
 def plot_costs(smk, n_header):
     cost_df = pd.read_csv(
         smk.input.costs, index_col=list(range(3)), header=list(range(n_header))
@@ -154,9 +155,7 @@ def plot_energy(smk, n_header):
 
     df = df.groupby(df.index.map(rename_techs)).sum()
 
-    to_drop = df.index[
-        df.abs().max(axis=1) < smk.params.plotting["energy_threshold"]
-    ]
+    to_drop = df.index[df.abs().max(axis=1) < smk.params.plotting["energy_threshold"]]
 
     logger.info(
         f"Dropping all technology with energy consumption or production below {smk.params['plotting']['energy_threshold']} TWh/a"
@@ -218,7 +217,6 @@ def plot_energy(smk, n_header):
     ax.legend(
         handles, labels, ncol=1, loc="upper left", bbox_to_anchor=[1, 1], frameon=False
     )
-
 
     fig.savefig(smk.output.energy, bbox_inches="tight")
     plt.close(fig)

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Peter Kröning and Contributors to <https://github.com/koen-vg/eu-hydrogen>
+#
+# SPDX-License-Identifier: CC0-1.0
+
 run:
   name: "myopic-mga"
   default_target_rule: "plot_all_summaries"

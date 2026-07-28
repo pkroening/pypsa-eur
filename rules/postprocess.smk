@@ -422,10 +422,12 @@ if "mga" in config["scenario"]:
             costs=RESULTS + "graphs_mga/costs.pdf",
             energy=RESULTS + "graphs_mga/energy.pdf",
             balances=RESULTS + "graphs_mga/balances-energy.pdf",
+        log:
+            RESULTS + "logs/plot_summary_mga.log",
+        localrule: True
         threads: 2
         resources:
             mem_mb=10000,
-        localrule: True
         params:
             countries=config_provider("countries"),
             planning_horizons=config_provider("scenario", "planning_horizons"),
@@ -435,12 +437,8 @@ if "mga" in config["scenario"]:
             co2_budget=config_provider("co2_budget"),
             sector=config_provider("sector"),
             RDIR=RDIR,
-        log:
-            RESULTS
-            + "logs/plot_summary_mga.log",
         script:
             scripts("plot_summary_mga.py")
-
 
     rule make_summary_mga:
         input:
@@ -452,7 +450,11 @@ if "mga" in config["scenario"]:
                 allow_missing=True,
             ),
             costs=lambda w: (
-                resources("costs_{}_processed.csv".format(config_provider("costs", "year")(w)))
+                resources(
+                    "costs_{}_processed.csv".format(
+                        config_provider("costs", "year")(w)
+                    )
+                )
                 if config_provider("foresight")(w) == "overnight"
                 else resources(
                     "costs_{}_processed.csv".format(
@@ -512,11 +514,11 @@ if "mga" in config["scenario"]:
         log:
             logs("make_summary_mga.log"),
         benchmark:
-            benchmarks("make_summary_mga"),
+            benchmarks("make_summary_mga")
+        localrule: True
         threads: 2
         resources:
             mem_mb=10000,
-        localrule: True
         params:
             foresight=config_provider("foresight"),
             scenario=config_provider("scenario"),
@@ -535,17 +537,14 @@ if "mga" in config["scenario"]:
         #     "TODO"
         params:
             mga=config["scenario"]["mga"],
-            save_path=RESULTS,            
+            save_path=RESULTS,
         script:
-            scripts("plot_pathways.py")        
-
-
+            scripts("plot_pathways.py")
 
     rule make_all_summaries:
         input:
             expand(RESULTS + "csvs/costs.csv", run=config["run"]["name"]),
             expand(RESULTS + "csvs_mga/costs.csv", run=config["run"]["name"]),
-
 
     rule plot_all_summaries:
         input:
@@ -602,6 +601,7 @@ rule plot_summary:
         "Plotting summary statistics and results"
     script:
         scripts("plot_summary.py")
+
 
 rule plot_balance_timeseries:
     input:

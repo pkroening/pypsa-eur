@@ -165,14 +165,17 @@ def memory(w):
     else:
         return int(factor * (10000 + 195 * int(w.clusters)))
 
-def get_memory(base_memory:int|partial, partition:str = "c23ms"):
+
+def get_memory(base_memory: int | partial, partition: str = "c23ms"):
     # Claix: default value and the recommended maximum for #SBATCH --mem-per-cpu
     if partition == "c23ms":
-        mem_per_core = 2540   # MiB
+        mem_per_core = 2540  # MiB
     elif partition == "c23mm":
-        mem_per_core = 5210   # MiB
+        mem_per_core = 5210  # MiB
     else:
-        raise ValueError(f"Partition {partition} is not supportet for function get_memory().")
+        raise ValueError(
+            f"Partition {partition} is not supportet for function get_memory()."
+        )
 
     def mem(wildcards, threads, attempt):
         # check type
@@ -181,7 +184,9 @@ def get_memory(base_memory:int|partial, partition:str = "c23ms"):
         elif isinstance(base_memory, int):
             mem_b = base_memory
         else:
-            raise ValueError(f"The agument base_memory is expected to be either an int or a partial, but it's {type(base_memory)}.")
+            raise ValueError(
+                f"The agument base_memory is expected to be either an int or a partial, but it's {type(base_memory)}."
+            )
 
         # base: round up on multiple of cluster max mem_per_core
         mem_b = mem_per_core * (int(mem_b / mem_per_core) + (mem_b % mem_per_core > 0))
@@ -190,9 +195,10 @@ def get_memory(base_memory:int|partial, partition:str = "c23ms"):
         mem_t = mem_per_core * threads
 
         # attempt (starting from 1): increase linearly
-        mem_a = (attempt-0.4)*max(mem_b, mem_t)
-        
+        mem_a = (attempt - 0.4) * max(mem_b, mem_t)
+
         return max(mem_b, mem_t, mem_a)
+
     return mem
 
 
@@ -225,6 +231,7 @@ def solved_previous_horizon(w):
         + planning_horizon_p
         + ".nc"
     )
+
 
 def solved_previous_horizon_myopic_mga(w):
     planning_horizons = config_provider("scenario", "planning_horizons")(w)

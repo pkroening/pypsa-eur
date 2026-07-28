@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Peter Kröning
+#
+# SPDX-License-Identifier: MIT
+
 import logging
 import os
 
@@ -80,7 +84,6 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
         for opt in opts:
             for sector_opt in sector_opts:
                 for component, carrier in _unique_components(df, region):
-
                     # One figure to compare slacks/objective function in each subfigure
                     # -1 due to the default being plottet everywhere
                     fig_sla, axes_sla = _row_subplots(len(slacks) - 1)
@@ -90,24 +93,32 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                     y_max = 0
 
                     for alt_obj in enumerate(objectives):
-
                         for slack in enumerate(slacks):
-
                             # Get optimization type
                             default = bool(not alt_obj[1] and not slack[1])
                             mga = bool(alt_obj[1] and slack[1])
 
                             if default or mga:
-
                                 # Get x
                                 x = planning_horizons
 
                                 # Get y
                                 y = df.loc[
                                     idx[component, :, carrier],
-                                    idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
+                                    idx[
+                                        cluster,
+                                        opt,
+                                        sector_opt,
+                                        x,
+                                        alt_obj[1],
+                                        slack[1],
+                                    ],
                                 ]
-                                y = y[y.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
+                                y = y[
+                                    y.index.get_level_values(
+                                        level="location"
+                                    ).str.startswith(region)
+                                ].sum(axis="index")
 
                                 # Update y_max
                                 y_max = max(y_max, y.max())
@@ -115,30 +126,63 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                                 # Plot
                                 if default:
                                     for ax in axes_sla.flatten():
-                                        ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
+                                        ax.plot(
+                                            x,
+                                            y,
+                                            marker="x",
+                                            color="black",
+                                            label="cost optimal",
+                                            zorder=2.01,
+                                        )
                                     for ax in axes_obj.flatten():
-                                        ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
+                                        ax.plot(
+                                            x,
+                                            y,
+                                            marker="x",
+                                            color="black",
+                                            label="cost optimal",
+                                            zorder=2.01,
+                                        )
                                 elif mga:
-                                    axes_sla[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
-                                    axes_sla[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
+                                    axes_sla[slack[0]].set_ylabel(
+                                        f"s={float(slack[1]):.0%}"
+                                    )
+                                    axes_sla[slack[0]].plot(
+                                        x, y, marker="x", label=alt_obj[1]
+                                    )
 
                                     # Darker/more opaque and on top the closer the slack is to cost optimal
                                     slack_val = float(slack[1])
-                                    color = plt.cm.Oranges(0.85 - 0.5 * slack_val / slack_range)
-                                    zorder = 2 + 0.01*0.9 * (1 - slack_val / slack_range)
+                                    color = plt.cm.Oranges(
+                                        0.85 - 0.5 * slack_val / slack_range
+                                    )
+                                    zorder = 2 + 0.01 * 0.9 * (
+                                        1 - slack_val / slack_range
+                                    )
 
                                     axes_obj[alt_obj[0]].set_ylabel(alt_obj[1])
-                                    axes_obj[alt_obj[0]].fill_between(x, 0, y, color=color, alpha=0.4, zorder=zorder)
-                                    axes_obj[alt_obj[0]].plot(x, y, marker="x", color=color, label=f"s={slack_val:.0%}", zorder=zorder)
+                                    axes_obj[alt_obj[0]].fill_between(
+                                        x, 0, y, color=color, alpha=0.4, zorder=zorder
+                                    )
+                                    axes_obj[alt_obj[0]].plot(
+                                        x,
+                                        y,
+                                        marker="x",
+                                        color=color,
+                                        label=f"s={slack_val:.0%}",
+                                        zorder=zorder,
+                                    )
 
                     # Save file
                     filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.png"
                     for subdir, view_fig, view_axes in [
                         ("comp_obj", fig_sla, axes_sla),
-                        ("comp_slack", fig_obj, axes_obj)
+                        ("comp_slack", fig_obj, axes_obj),
                     ]:
                         path = f"{save_path}pathways/{prop}/{subdir}"
-                        _finalize(view_fig, view_axes, y_max, region_str, prop, path, filename)
+                        _finalize(
+                            view_fig, view_axes, y_max, region_str, prop, path, filename
+                        )
 
 
 def plot_costs(file_path, n_header, region: tuple, save_path):
@@ -161,7 +205,6 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
     for cluster in clusters:
         for opt in opts:
             for sector_opt in sector_opts:
-
                 # Per-component cost trajectories, keyed by (alt_obj, slack) scenario, for the stacked figures below
                 stack_cap = {}
                 stack_mar = {}
@@ -184,7 +227,6 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                     y_tot_max = 0
 
                     for alt_obj in enumerate(objectives):
-
                         for slack in enumerate(slacks):
                             default = bool(not alt_obj[1] and not slack[1])
                             mga = bool(alt_obj[1] and slack[1])
@@ -197,18 +239,40 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                 try:
                                     y_cap = df.loc[
                                         idx["capital", component, :, carrier],
-                                        idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
+                                        idx[
+                                            cluster,
+                                            opt,
+                                            sector_opt,
+                                            x,
+                                            alt_obj[1],
+                                            slack[1],
+                                        ],
                                     ]
-                                    y_cap = y_cap[y_cap.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
+                                    y_cap = y_cap[
+                                        y_cap.index.get_level_values(
+                                            level="location"
+                                        ).str.startswith(region)
+                                    ].sum(axis="index")
                                 except KeyError:
                                     y_cap = np.zeros(len(x))
 
                                 try:
                                     y_mar = df.loc[
                                         idx["marginal", component, :, carrier],
-                                        idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
+                                        idx[
+                                            cluster,
+                                            opt,
+                                            sector_opt,
+                                            x,
+                                            alt_obj[1],
+                                            slack[1],
+                                        ],
                                     ]
-                                    y_mar = y_mar[y_mar.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
+                                    y_mar = y_mar[
+                                        y_mar.index.get_level_values(
+                                            level="location"
+                                        ).str.startswith(region)
+                                    ].sum(axis="index")
                                 except KeyError:
                                     y_mar = np.zeros(len(x))
                                 y_tot = y_cap + y_mar
@@ -220,31 +284,89 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
 
                                 # Append trajectories for the stacked figures, keyed by scenario
                                 scenario_key = (alt_obj[1], slack[1])
-                                stack_cap.setdefault(scenario_key, []).append(np.asarray(y_cap, dtype=float))
-                                stack_mar.setdefault(scenario_key, []).append(np.asarray(y_mar, dtype=float))
-                                stack_tot.setdefault(scenario_key, []).append(np.asarray(y_tot, dtype=float))
+                                stack_cap.setdefault(scenario_key, []).append(
+                                    np.asarray(y_cap, dtype=float)
+                                )
+                                stack_mar.setdefault(scenario_key, []).append(
+                                    np.asarray(y_mar, dtype=float)
+                                )
+                                stack_tot.setdefault(scenario_key, []).append(
+                                    np.asarray(y_tot, dtype=float)
+                                )
 
                                 if default:
-                                    for axes, y in [(axes_cap_sla, y_cap), (axes_mar_sla, y_mar), (axes_tot_sla, y_tot)]:
+                                    for axes, y in [
+                                        (axes_cap_sla, y_cap),
+                                        (axes_mar_sla, y_mar),
+                                        (axes_tot_sla, y_tot),
+                                    ]:
                                         for ax in axes.flatten():
-                                            ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
-                                    for axes, y in [(axes_cap_obj, y_cap), (axes_mar_obj, y_mar), (axes_tot_obj, y_tot)]:
+                                            ax.plot(
+                                                x,
+                                                y,
+                                                marker="x",
+                                                color="black",
+                                                label="cost optimal",
+                                                zorder=2.01,
+                                            )
+                                    for axes, y in [
+                                        (axes_cap_obj, y_cap),
+                                        (axes_mar_obj, y_mar),
+                                        (axes_tot_obj, y_tot),
+                                    ]:
                                         for ax in axes.flatten():
-                                            ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
+                                            ax.plot(
+                                                x,
+                                                y,
+                                                marker="x",
+                                                color="black",
+                                                label="cost optimal",
+                                                zorder=2.01,
+                                            )
                                 elif mga:
-                                    for axes, y in [(axes_cap_sla, y_cap), (axes_mar_sla, y_mar), (axes_tot_sla, y_tot)]:
-                                        axes[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
-                                        axes[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
+                                    for axes, y in [
+                                        (axes_cap_sla, y_cap),
+                                        (axes_mar_sla, y_mar),
+                                        (axes_tot_sla, y_tot),
+                                    ]:
+                                        axes[slack[0]].set_ylabel(
+                                            f"s={float(slack[1]):.0%}"
+                                        )
+                                        axes[slack[0]].plot(
+                                            x, y, marker="x", label=alt_obj[1]
+                                        )
 
                                     # Darker/more opaque and on top the closer the slack is to cost optimal
                                     slack_val = float(slack[1])
-                                    color = plt.cm.Oranges(0.85 - 0.5 * slack_val / slack_range)
-                                    zorder = 2 + 0.01 * 0.9 * (1 - slack_val / slack_range)
+                                    color = plt.cm.Oranges(
+                                        0.85 - 0.5 * slack_val / slack_range
+                                    )
+                                    zorder = 2 + 0.01 * 0.9 * (
+                                        1 - slack_val / slack_range
+                                    )
 
-                                    for axes, y in [(axes_cap_obj, y_cap), (axes_mar_obj, y_mar), (axes_tot_obj, y_tot)]:
+                                    for axes, y in [
+                                        (axes_cap_obj, y_cap),
+                                        (axes_mar_obj, y_mar),
+                                        (axes_tot_obj, y_tot),
+                                    ]:
                                         axes[alt_obj[0]].set_ylabel(alt_obj[1])
-                                        axes[alt_obj[0]].fill_between(x, 0, y, color=color, alpha=0.4, zorder=zorder)
-                                        axes[alt_obj[0]].plot(x, y, marker="x", color=color, label=f"s={slack_val:.0%}", zorder=zorder)
+                                        axes[alt_obj[0]].fill_between(
+                                            x,
+                                            0,
+                                            y,
+                                            color=color,
+                                            alpha=0.4,
+                                            zorder=zorder,
+                                        )
+                                        axes[alt_obj[0]].plot(
+                                            x,
+                                            y,
+                                            marker="x",
+                                            color=color,
+                                            label=f"s={slack_val:.0%}",
+                                            zorder=zorder,
+                                        )
 
                     filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.png"
                     for subdir, fig, axes, y_max, n in [
@@ -252,15 +374,22 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                         ("comp_obj", fig_mar_sla, axes_mar_sla, y_mar_max, "marginal"),
                         ("comp_obj", fig_tot_sla, axes_tot_sla, y_tot_max, "total"),
                         ("comp_slack", fig_cap_obj, axes_cap_obj, y_cap_max, "capital"),
-                        ("comp_slack", fig_mar_obj, axes_mar_obj, y_mar_max, "marginal"),
+                        (
+                            "comp_slack",
+                            fig_mar_obj,
+                            axes_mar_obj,
+                            y_mar_max,
+                            "marginal",
+                        ),
                         ("comp_slack", fig_tot_obj, axes_tot_obj, y_tot_max, "total"),
                     ]:
                         path = f"{save_path}pathways/{prop}/{n}/{subdir}"
-                        _finalize(fig, axes, y_max, region_str, f"{n} {prop}", path, filename)
+                        _finalize(
+                            fig, axes, y_max, region_str, f"{n} {prop}", path, filename
+                        )
 
                 # Stacked cost breakdown across all components, one figure per slack x objective scenario
                 for alt_obj in enumerate(objectives):
-
                     for slack in enumerate(slacks):
                         default = bool(not alt_obj[1] and not slack[1])
                         mga = bool(alt_obj[1] and slack[1])
@@ -284,8 +413,12 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                             ("marginal", y_mar_by_comp),
                             ("total", y_tot_by_comp),
                         ]:
-                            fig, ax = plt.subplots(figsize=(16, 9), layout="constrained")
-                            ax.stackplot(x, *ys, labels=stacked_labels, colors=stacked_colors)
+                            fig, ax = plt.subplots(
+                                figsize=(16, 9), layout="constrained"
+                            )
+                            ax.stackplot(
+                                x, *ys, labels=stacked_labels, colors=stacked_colors
+                            )
                             y_max = np.sum(ys, axis=0).max()
                             path = f"{save_path}pathways/{prop}/{name}/stacked"
                             legend_kwargs = {
@@ -294,7 +427,16 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                 "ncol": 6,
                                 "fontsize": "small",
                             }
-                            _finalize(fig, np.atleast_1d(ax), y_max, title, f"{name} {prop}", path, filename, legend_kwargs=legend_kwargs)
+                            _finalize(
+                                fig,
+                                np.atleast_1d(ax),
+                                y_max,
+                                title,
+                                f"{name} {prop}",
+                                path,
+                                filename,
+                                legend_kwargs=legend_kwargs,
+                            )
 
 
 if __name__ == "__main__":
@@ -309,13 +451,12 @@ if __name__ == "__main__":
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 
-    # Currently, breaks for default (intendet)
+    # Currently, breaks for default (intended)
     region = tuple(snakemake.params.mga.get("region", None))
 
     n_header = 6
 
     save_path = snakemake.params.save_path
-
 
     plot_capacities(
         file_path=snakemake.input.nodal_capacities,
