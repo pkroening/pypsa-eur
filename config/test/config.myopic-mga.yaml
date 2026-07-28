@@ -26,7 +26,8 @@ scenario:
   - 2035
   mga:
     slack:
-    - 0.1
+    - 0.05
+    - 0.10
     slack_initial_fraction: 0.5
     alternative_objectives:
       # Technology focus
