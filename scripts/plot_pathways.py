@@ -46,7 +46,7 @@ def _unique_components(df, region):
 
 
 def _row_subplots(n_rows):
-    fig, axes = plt.subplots(n_rows, figsize=(10, 5), sharex=True)
+    fig, axes = plt.subplots(n_rows, figsize=(10, 5), sharex=True, layout="constrained")
     return fig, np.atleast_1d(axes)
 
 
