@@ -87,18 +87,6 @@ rule solve_sector_networks:
     message:
         "Collecting solved sector-coupled network files"
 
-if "mga" in config["scenario"]:
-    rule all_myopic_mga:
-        input:
-            expand(
-                RESULTS
-                + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}.nc",
-                **config["scenario"],
-                alternative_objectives=config["scenario"]["mga"]["alternative_objectives"].keys(),
-                slack=config["scenario"]["mga"]["slack"],
-                run=config["run"]["name"],
-            ),
-
 
 rule solve_sector_networks_perfect:
     input:
