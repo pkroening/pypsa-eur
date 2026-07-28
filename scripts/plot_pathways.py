@@ -68,9 +68,10 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
 
     clusters, opts, sector_opts, planning_horizons, objectives, slacks = _get_levels(df)
 
-    # PLotting strings
+    # Plotting
     region_str = ",".join(region)
     prop = file_path.split("nodal_")[1].removesuffix(".csv")
+    slack_range = max([float(s) for s in slacks if s])
 
     # Iterate
     idx = pd.IndexSlice
@@ -113,15 +114,21 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                                 # Plot
                                 if default:
                                     for ax in axes_sla.flatten():
-                                        ax.plot(x, y, marker="x", color="black", label="cost optimal")
+                                        ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
                                     for ax in axes_obj.flatten():
-                                        ax.plot(x, y, marker="x", color="black", label="cost optimal")
+                                        ax.plot(x, y, marker="x", color="black", label="cost optimal", zorder=2.01)
                                 elif mga:
                                     axes_sla[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
                                     axes_sla[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
 
+                                    # Darker/more opaque and on top the closer the slack is to cost optimal
+                                    slack_val = float(slack[1])
+                                    color = plt.cm.Oranges(0.85 - 0.5 * slack_val / slack_range)
+                                    zorder = 2 + 0.01*0.9 * (1 - slack_val / slack_range)
+
                                     axes_obj[alt_obj[0]].set_ylabel(alt_obj[1])
-                                    axes_obj[alt_obj[0]].plot(x, y, marker="x", label=slack[1])
+                                    axes_obj[alt_obj[0]].fill_between(x, 0, y, color=color, alpha=0.4, zorder=zorder)
+                                    axes_obj[alt_obj[0]].plot(x, y, marker="x", color=color, label=f"s={slack_val:.0%}", zorder=zorder)
 
                     # Save file
                     filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg"
