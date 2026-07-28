@@ -151,12 +151,23 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
     prop = file_path.split("nodal_")[1].removesuffix(".csv")
     slack_range = max([float(s) for s in slacks if s])
 
+    # Fixed component order/colors so the same component always gets the same color across stacked figures
+    components = list(_unique_components(df, region))
+    stacked_labels = [f"{component} {carrier}" for component, carrier in components]
+    stacked_colors = plt.cm.tab20(np.linspace(0, 1, len(components)))
+
     # Iterate
     idx = pd.IndexSlice
     for cluster in clusters:
         for opt in opts:
             for sector_opt in sector_opts:
-                for component, carrier in _unique_components(df, region):
+
+                # Per-component cost trajectories, keyed by (alt_obj, slack) scenario, for the stacked figures below
+                stack_cap = {}
+                stack_mar = {}
+                stack_tot = {}
+
+                for component, carrier in components:
                     # One figure to compare slacks/objective function in each subfigure
                     # -1 due to the default being plottet everywhere
                     fig_cap_sla, axes_cap_sla = _row_subplots(len(slacks) - 1)
@@ -207,6 +218,12 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                 y_mar_max = max(y_mar_max, y_mar.max())
                                 y_tot_max = max(y_tot_max, y_tot.max())
 
+                                # Append trajectories for the stacked figures, keyed by scenario
+                                scenario_key = (alt_obj[1], slack[1])
+                                stack_cap.setdefault(scenario_key, []).append(np.asarray(y_cap, dtype=float))
+                                stack_mar.setdefault(scenario_key, []).append(np.asarray(y_mar, dtype=float))
+                                stack_tot.setdefault(scenario_key, []).append(np.asarray(y_tot, dtype=float))
+
                                 if default:
                                     for axes, y in [(axes_cap_sla, y_cap), (axes_mar_sla, y_mar), (axes_tot_sla, y_tot)]:
                                         for ax in axes.flatten():
@@ -241,27 +258,9 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                         path = f"{save_path}pathways/{prop}/{n}/{subdir}"
                         _finalize(fig, axes, y_max, region_str, f"{n} {prop}", path, filename)
 
-
-def plot_stacked_costs(file_path, n_header, region: tuple, save_path):
-    df = _load_and_clean(file_path, n_header, n_index=4)
-
-    clusters, opts, sector_opts, planning_horizons, objectives, slacks = _get_levels(df)
-
-    region_str = ",".join(region)
-    prop = file_path.split("nodal_")[1].removesuffix(".csv")
-
-    # Fixed component order/colors so the same component always gets the same color across figures
-    components = list(_unique_components(df, region))
-    labels = [f"{component} {carrier}" for component, carrier in components]
-    colors = plt.cm.tab20(np.linspace(0, 1, len(components)))
-
-    idx = pd.IndexSlice
-    x = planning_horizons
-
-    for cluster in clusters:
-        for opt in opts:
-            for sector_opt in sector_opts:
+                # Stacked cost breakdown across all components, one figure per slack x objective scenario
                 for alt_obj in enumerate(objectives):
+
                     for slack in enumerate(slacks):
                         default = bool(not alt_obj[1] and not slack[1])
                         mga = bool(alt_obj[1] and slack[1])
@@ -269,45 +268,24 @@ def plot_stacked_costs(file_path, n_header, region: tuple, save_path):
                         if not (default or mga):
                             continue
 
-                        y_cap_by_comp = []
-                        y_mar_by_comp = []
-                        for component, carrier in components:
-                            # Try-except because some components might not have these costs
-                            try:
-                                y_cap = df.loc[
-                                    idx["capital", component, :, carrier],
-                                    idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
-                                ]
-                                y_cap = y_cap[y_cap.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
-                            except KeyError:
-                                y_cap = np.zeros(len(x))
-
-                            try:
-                                y_mar = df.loc[
-                                    idx["marginal", component, :, carrier],
-                                    idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
-                                ]
-                                y_mar = y_mar[y_mar.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
-                            except KeyError:
-                                y_mar = np.zeros(len(x))
-
-                            y_cap_by_comp.append(np.asarray(y_cap, dtype=float))
-                            y_mar_by_comp.append(np.asarray(y_mar, dtype=float))
-
-                        y_tot_by_comp = [c + m for c, m in zip(y_cap_by_comp, y_mar_by_comp)]
+                        scenario_key = (alt_obj[1], slack[1])
+                        y_cap_by_comp = stack_cap[scenario_key]
+                        y_mar_by_comp = stack_mar[scenario_key]
+                        y_tot_by_comp = stack_tot[scenario_key]
 
                         scenario_label = alt_obj[1] if alt_obj[1] else "cost-optimal"
                         slack_label = f"s{slack[1]}" if slack[1] else "s0"
                         title = f"{region_str} - {scenario_label} {slack_label}"
                         filename = f"{cluster}_{opt}_{sector_opt}-{scenario_label}_{slack_label}_{region_str}.svg"
 
+                        x = planning_horizons
                         for name, ys in [
                             ("capital", y_cap_by_comp),
                             ("marginal", y_mar_by_comp),
                             ("total", y_tot_by_comp),
                         ]:
                             fig, ax = plt.subplots(figsize=(16, 9), layout="constrained")
-                            ax.stackplot(x, *ys, labels=labels, colors=colors)
+                            ax.stackplot(x, *ys, labels=stacked_labels, colors=stacked_colors)
                             y_max = np.sum(ys, axis=0).max()
                             path = f"{save_path}pathways/{prop}/{name}/stacked"
                             legend_kwargs = {
