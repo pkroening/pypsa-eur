@@ -75,10 +75,10 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
 
     # Iterate
     idx = pd.IndexSlice
-    for component, carrier in _unique_components(df, region):
-        for cluster in clusters:
-            for opt in opts:
-                for sector_opt in sector_opts:
+    for cluster in clusters:
+        for opt in opts:
+            for sector_opt in sector_opts:
+                for component, carrier in _unique_components(df, region):
 
                     # One figure to compare slacks/objective function in each subfigure
                     # -1 due to the default being plottet everywhere
@@ -145,18 +145,17 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
 
     clusters, opts, sector_opts, planning_horizons, objectives, slacks = _get_levels(df)
 
-    # PLotting strings
+    # Plotting strings
     region_str = ",".join(region)
     prop = file_path.split("nodal_")[1].removesuffix(".csv")
     slack_range = max([float(s) for s in slacks if s])
 
     # Iterate
     idx = pd.IndexSlice
-    for component, carrier in _unique_components(df, region):
-        for cluster in clusters:
-            for opt in opts:
-                for sector_opt in sector_opts:
-
+    for cluster in clusters:
+        for opt in opts:
+            for sector_opt in sector_opts:
+                for component, carrier in _unique_components(df, region):
                     # One figure to compare slacks/objective function in each subfigure
                     # -1 due to the default being plottet everywhere
                     fig_cap_sla, axes_cap_sla = _row_subplots(len(slacks) - 1)
