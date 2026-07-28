@@ -80,6 +80,7 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                 for sector_opt in sector_opts:
 
                     # One figure to compare slacks/objective function in each subfigure
+                    # -1 due to the default being plottet everywhere
                     fig_sla, axes_sla = _row_subplots(len(slacks) - 1)
                     fig_obj, axes_obj = _row_subplots(len(objectives) - 1)
 
@@ -149,6 +150,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                 for sector_opt in sector_opts:
 
                     # One figure to compare slacks/objective function in each subfigure
+                    # -1 due to the default being plottet everywhere
                     fig_cap_sla, axes_cap_sla = _row_subplots(len(slacks) - 1)
                     fig_mar_sla, axes_mar_sla = _row_subplots(len(slacks) - 1)
                     fig_tot_sla, axes_tot_sla = _row_subplots(len(slacks) - 1)
