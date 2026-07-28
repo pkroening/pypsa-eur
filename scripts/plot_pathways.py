@@ -237,6 +237,7 @@ if __name__ == "__main__":
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 
+    # Currently, breaks for default (intendet)
     region = tuple(snakemake.params.mga.get("region", None))
 
     n_header = 6
