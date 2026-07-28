@@ -45,7 +45,7 @@ def _unique_components(df, region):
             yield component, carrier
 
 
-def _slack_subplots(n_rows):
+def _row_subplots(n_rows):
     fig, axes = plt.subplots(n_rows, figsize=(10, 5), sharex=True)
     return fig, np.atleast_1d(axes)
 
@@ -79,35 +79,57 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
             for opt in opts:
                 for sector_opt in sector_opts:
 
-                    # Plot
-                    fig, axes = _slack_subplots(len(slacks) - 1)
+                    # One figure to compare slacks/objective function in each subfigure
+                    fig_sla, axes_sla = _row_subplots(len(slacks) - 1)
+                    fig_obj, axes_obj = _row_subplots(len(objectives) - 1)
 
+                    # Initialize max val for scaling
                     y_max = 0
+
                     for alt_obj in enumerate(objectives):
 
                         for slack in enumerate(slacks):
+
+                            # Get optimization type
                             default = bool(not alt_obj[1] and not slack[1])
                             mga = bool(alt_obj[1] and slack[1])
 
                             if default or mga:
+
+                                # Get x
                                 x = planning_horizons
+
+                                # Get y
                                 y = df.loc[
                                     idx[component, :, carrier],
                                     idx[cluster, opt, sector_opt, x, alt_obj[1], slack[1]]
                                 ]
                                 y = y[y.index.get_level_values(level="location").str.startswith(region)].sum(axis="index")
+
+                                # Update y_max
                                 y_max = max(y_max, y.max())
 
+                                # Plot
                                 if default:
-                                    for ax in axes.flatten():
+                                    for ax in axes_sla.flatten():
+                                        ax.plot(x, y, marker="x", color="black", label="cost optimal")
+                                    for ax in axes_obj.flatten():
                                         ax.plot(x, y, marker="x", color="black", label="cost optimal")
                                 elif mga:
-                                    axes[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
-                                    axes[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
+                                    axes_sla[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
+                                    axes_sla[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
 
-                    path = f"{save_path}pathways/{property}"
+                                    axes_obj[alt_obj[0]].set_ylabel(alt_obj[1])
+                                    axes_obj[alt_obj[0]].plot(x, y, marker="x", label=slack[1])
+
+                    # Save file
                     filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg"
-                    _finalize(fig, axes, y_max, region_str, property, path, filename)
+                    for subdir, view_fig, view_axes in [
+                        ("comp_obj", fig_sla, axes_sla),
+                        ("comp_slack", fig_obj, axes_obj)
+                    ]:
+                        path = f"{save_path}pathways/{property}/{subdir}"
+                        _finalize(view_fig, view_axes, y_max, region_str, property, path, filename)
 
 
 def plot_costs(file_path, n_header, region: tuple, save_path):
@@ -126,11 +148,16 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
             for opt in opts:
                 for sector_opt in sector_opts:
 
-                    # Plot
-                    fig_cap, axes_cap = _slack_subplots(len(slacks) - 1)
-                    fig_mar, axes_mar = _slack_subplots(len(slacks) - 1)
-                    fig_tot, axes_tot = _slack_subplots(len(slacks) - 1)
+                    # One figure to compare slacks/objective function in each subfigure
+                    fig_cap_sla, axes_cap_sla = _row_subplots(len(slacks) - 1)
+                    fig_mar_sla, axes_mar_sla = _row_subplots(len(slacks) - 1)
+                    fig_tot_sla, axes_tot_sla = _row_subplots(len(slacks) - 1)
 
+                    fig_cap_obj, axes_cap_obj = _row_subplots(len(objectives) - 1)
+                    fig_mar_obj, axes_mar_obj = _row_subplots(len(objectives) - 1)
+                    fig_tot_obj, axes_tot_obj = _row_subplots(len(objectives) - 1)
+
+                    # Initialize max val for scaling
                     y_cap_max = 0
                     y_mar_max = 0
                     y_tot_max = 0
@@ -142,7 +169,10 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                             mga = bool(alt_obj[1] and slack[1])
 
                             if default or mga:
+                                # Get x
                                 x = planning_horizons
+
+                                # Get y (try-except because some components might not have these costs)
                                 try:
                                     y_cap = df.loc[
                                         idx["capital", component, :, carrier],
@@ -162,26 +192,36 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                                     y_mar = np.zeros_like(x)
                                 y_tot = y_cap + y_mar
 
+                                # Update y_max
                                 y_cap_max = max(y_cap_max, y_cap.max())
                                 y_mar_max = max(y_mar_max, y_mar.max())
                                 y_tot_max = max(y_tot_max, y_tot.max())
 
                                 if default:
-                                    for axes, y in [(axes_cap, y_cap), (axes_mar, y_mar), (axes_tot, y_tot)]:
+                                    for axes, y in [(axes_cap_sla, y_cap), (axes_mar_sla, y_mar), (axes_tot_sla, y_tot)]:
+                                        for ax in axes.flatten():
+                                            ax.plot(x, y, marker="x", color="black", label="cost optimal")
+                                    for axes, y in [(axes_cap_obj, y_cap), (axes_mar_obj, y_mar), (axes_tot_obj, y_tot)]:
                                         for ax in axes.flatten():
                                             ax.plot(x, y, marker="x", color="black", label="cost optimal")
                                 elif mga:
-                                    for axes, y in [(axes_cap, y_cap), (axes_mar, y_mar), (axes_tot, y_tot)]:
+                                    for axes, y in [(axes_cap_sla, y_cap), (axes_mar_sla, y_mar), (axes_tot_sla, y_tot)]:
                                         axes[slack[0]].set_ylabel(f"s={float(slack[1]):.0%}")
                                         axes[slack[0]].plot(x, y, marker="x", label=alt_obj[1])
+                                    for axes, y in [(axes_cap_obj, y_cap), (axes_mar_obj, y_mar), (axes_tot_obj, y_tot)]:
+                                        axes[alt_obj[0]].set_ylabel(alt_obj[1])
+                                        axes[alt_obj[0]].plot(x, y, marker="x", label=f"s={float(slack[1]):.0%}")
 
                     filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.svg"
-                    for fig, axes, y_max, n in [
-                        (fig_cap, axes_cap, y_cap_max, "capital"),
-                        (fig_mar, axes_mar, y_mar_max, "marginal"),
-                        (fig_tot, axes_tot, y_tot_max, "total"),
+                    for subdir, fig, axes, y_max, n in [
+                        ("comp_obj", fig_cap_sla, axes_cap_sla, y_cap_max, "capital"),
+                        ("comp_obj", fig_mar_sla, axes_mar_sla, y_mar_max, "marginal"),
+                        ("comp_obj", fig_tot_sla, axes_tot_sla, y_tot_max, "total"),
+                        ("comp_slack", fig_cap_obj, axes_cap_obj, y_cap_max, "capital"),
+                        ("comp_slack", fig_mar_obj, axes_mar_obj, y_mar_max, "marginal"),
+                        ("comp_slack", fig_tot_obj, axes_tot_obj, y_tot_max, "total"),
                     ]:
-                        path = f"{save_path}pathways/{property}/{n}"
+                        path = f"{save_path}pathways/{property}/{n}/{subdir}"
                         _finalize(fig, axes, y_max, region_str, f"{n} {property}", path, filename)
 
 
