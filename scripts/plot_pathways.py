@@ -70,7 +70,7 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
 
     # PLotting strings
     region_str = ",".join(region)
-    property = file_path.split("nodal_")[1].removesuffix(".csv")
+    prop = file_path.split("nodal_")[1].removesuffix(".csv")
 
     # Iterate
     idx = pd.IndexSlice
@@ -128,8 +128,8 @@ def plot_capacities(file_path, n_header, region: tuple, save_path):
                         ("comp_obj", fig_sla, axes_sla),
                         ("comp_slack", fig_obj, axes_obj)
                     ]:
-                        path = f"{save_path}pathways/{property}/{subdir}"
-                        _finalize(view_fig, view_axes, y_max, region_str, property, path, filename)
+                        path = f"{save_path}pathways/{prop}/{subdir}"
+                        _finalize(view_fig, view_axes, y_max, region_str, prop, path, filename)
 
 
 def plot_costs(file_path, n_header, region: tuple, save_path):
@@ -139,7 +139,7 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
 
     # PLotting strings
     region_str = ",".join(region)
-    property = file_path.split("nodal_")[1].removesuffix(".csv")
+    prop = file_path.split("nodal_")[1].removesuffix(".csv")
 
     # Iterate
     idx = pd.IndexSlice
@@ -221,8 +221,8 @@ def plot_costs(file_path, n_header, region: tuple, save_path):
                         ("comp_slack", fig_mar_obj, axes_mar_obj, y_mar_max, "marginal"),
                         ("comp_slack", fig_tot_obj, axes_tot_obj, y_tot_max, "total"),
                     ]:
-                        path = f"{save_path}pathways/{property}/{n}/{subdir}"
-                        _finalize(fig, axes, y_max, region_str, f"{n} {property}", path, filename)
+                        path = f"{save_path}pathways/{prop}/{n}/{subdir}"
+                        _finalize(fig, axes, y_max, region_str, f"{n} {prop}", path, filename)
 
 
 if __name__ == "__main__":
