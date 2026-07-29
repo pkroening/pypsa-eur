@@ -252,11 +252,7 @@ def set_mga_constraint(
         opex_in, opex_out = split_df_by_region(opex, region)
 
         obj_bound_in_region = calc_bound(capex_in, capex_installed_in, opex_in)
-        obj_bound_out_region = min(
-            obj_bound_in_region,
-            calc_bound(capex_out, capex_installed_out, opex_out),
-            calc_bound(pd.Series(0), pd.Series(0), opex_out),
-        )  # worst case
+        obj_bound_out_region = calc_bound(capex_out, capex_installed_out, opex_out)
 
         n.meta["obj_bound"] = (obj_bound_in_region, obj_bound_out_region)  # meta data
 
