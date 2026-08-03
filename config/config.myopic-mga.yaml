@@ -43,9 +43,11 @@ scenario:
           varying:
             Link:
               p:
-                "DC": 1
+                # ignored
             Line:
-              s:  # TODO
-                "AC": 1
+              # In PyPSA optimization problems, AC is linearised in a way,
+              # that s represents the active power, not the apparent power.
+              s:
+                # ignored
     region:
     - DE
