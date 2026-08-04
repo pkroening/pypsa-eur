@@ -5,3 +5,9 @@
 # See https://snakemake.readthedocs.io/en/stable/executing/cli.html#profiles
 
 logger: pypsa
+
+scheduler: greedy
+prioritize:
+  - solve_sector_network_myopic
+  - solve_sector_network_myopic_mga
+
