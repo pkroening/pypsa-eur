@@ -137,36 +137,6 @@ def balance_map_paths(kind, w):
     )
 
 
-def balance_timeseries_paths():
-    return expand(
-        RESULTS
-        + "graphics/balance_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
-        **scenario_wildcards(),
-        run=config["run"]["name"],
-        mga=mga_suffixes(),
-    )
-
-
-def heatmap_timeseries_paths():
-    return expand(
-        RESULTS
-        + "graphics/heatmap_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
-        **scenario_wildcards(),
-        run=config["run"]["name"],
-        mga=mga_suffixes(),
-    )
-
-
-def interactive_bus_balance_paths():
-    return expand(
-        RESULTS
-        + "graphics/interactive_bus_balance/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
-        **scenario_wildcards(),
-        run=config["run"]["name"],
-        mga=mga_suffixes(),
-    )
-
-
 rule plot_balance_maps:
     input:
         static=lambda w: balance_map_paths("static", w),
@@ -187,21 +157,39 @@ rule plot_balance_maps_interactive:
 
 rule plot_all_balance_timeseries:
     input:
-        balance_timeseries_paths(),
+        expand(
+            RESULTS
+            + "graphics/balance_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
+            **scenario_wildcards(),
+            run=config["run"]["name"],
+            mga=mga_suffixes(),
+        ),
     message:
         "Plotting energy balance time series"
 
 
 rule plot_all_heatmap_timeseries:
     input:
-        heatmap_timeseries_paths(),
+        expand(
+            RESULTS
+            + "graphics/heatmap_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
+            **scenario_wildcards(),
+            run=config["run"]["name"],
+            mga=mga_suffixes(),
+        ),
     message:
         "Plotting heatmap time series"
 
 
 rule plot_all_interactive_bus_balance:
     input:
-        interactive_bus_balance_paths(),
+        expand(
+            RESULTS
+            + "graphics/interactive_bus_balance/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
+            **scenario_wildcards(),
+            run=config["run"]["name"],
+            mga=mga_suffixes(),
+        ),
     message:
         "Plotting interactive bus balances"
 
