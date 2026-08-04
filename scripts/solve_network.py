@@ -1602,7 +1602,7 @@ if __name__ == "__main__":
             )
         check_objective_value(n, snakemake.params.solving)
 
-    if "warning" in condition:
+    if "warning" in status:
         raise RuntimeError("Solving status 'warning'. Discarding solution.")
 
     if "infeasible" in condition:
