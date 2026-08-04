@@ -567,6 +567,7 @@ if "mga" in config["scenario"]:
             rules.plot_balance_maps.input,
             rules.plot_all_balance_timeseries.input,
             rules.plot_all_heatmap_timeseries.input,
+            rules.plot_all_interactive_bus_balance.input,
             expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
         message:
             "Collecting all near optimal results"
@@ -753,19 +754,19 @@ rule plot_cop_profiles:
 rule plot_interactive_bus_balance:
     input:
         network=RESULTS
-        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
         rc="matplotlibrc",
     output:
         directory=directory(
             RESULTS
-            + "graphics/interactive_bus_balance/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+            + "graphics/interactive_bus_balance/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
         ),
     log:
         RESULTS
-        + "logs/plot_interactive_bus_balance/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
+        + "logs/plot_interactive_bus_balance/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log",
     benchmark:
         RESULTS
-        + "benchmarks/plot_interactive_bus_balance/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+        + "benchmarks/plot_interactive_bus_balance/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
     resources:
         mem_mb=20000,
     params:

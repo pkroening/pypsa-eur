@@ -157,6 +157,16 @@ def heatmap_timeseries_paths():
     )
 
 
+def interactive_bus_balance_paths():
+    return expand(
+        RESULTS
+        + "graphics/interactive_bus_balance/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
+        **scenario_wildcards(),
+        run=config["run"]["name"],
+        mga=mga_suffixes(),
+    )
+
+
 rule plot_balance_maps:
     input:
         static=lambda w: balance_map_paths("static", w),
@@ -187,6 +197,13 @@ rule plot_all_heatmap_timeseries:
         heatmap_timeseries_paths(),
     message:
         "Plotting heatmap time series"
+
+
+rule plot_all_interactive_bus_balance:
+    input:
+        interactive_bus_balance_paths(),
+    message:
+        "Plotting interactive bus balances"
 
 
 rule plot_power_networks_clustered:
