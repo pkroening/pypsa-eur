@@ -520,7 +520,6 @@ if "mga" in config["scenario"]:
         resources:
             mem_mb=10000,
         params:
-            foresight=config_provider("foresight"),
             scenario=config_provider("scenario"),
             mga=config_provider("scenario", "mga"),
             RDIR=RDIR,
@@ -551,10 +550,31 @@ if "mga" in config["scenario"]:
         script:
             scripts("plot_pathways.py")
 
+    rule make_cumulative_costs_mga:
+        input:
+            costs=RESULTS + "csvs_mga/costs.csv",
+        output:
+            cumulative_costs=RESULTS + "csvs_mga/cumulative_costs.csv",
+        log:
+            RESULTS + "logs/make_cumulative_costs_mga.log",
+        benchmark:
+            RESULTS + "benchmarks/make_cumulative_costs_mga"
+        localrule: True
+        threads: 1
+        resources:
+            mem_mb=4000,
+        params:
+            scenario=config_provider("scenario"),
+        message:
+            "Calculating cumulative near optimal costs over time horizon"
+        script:
+            scripts("make_cumulative_costs_mga.py")
+
     rule make_all_summaries:
         input:
             expand(RESULTS + "csvs/costs.csv", run=config["run"]["name"]),
             expand(RESULTS + "csvs_mga/costs.csv", run=config["run"]["name"]),
+            expand(RESULTS + "csvs_mga/cumulative_costs.csv", run=config["run"]["name"]),
 
     rule plot_all_summaries:
         input:
@@ -563,6 +583,7 @@ if "mga" in config["scenario"]:
 
     rule all_mga:
         input:
+            rules.make_all_summaries.input,
             rules.plot_all_summaries.input,
             rules.plot_balance_maps.input,
             rules.plot_all_balance_timeseries.input,

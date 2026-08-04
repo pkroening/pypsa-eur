@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: : 2020-2024 The PyPSA-Eur Authors
+# SPDX-FileCopyrightText: : Peter Kröning and Contributors to <https://github.com/koen-vg/eu-hydrogen>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -8,7 +8,6 @@ capacity factors, curtailment, energy balances, prices and other metrics.
 
 import logging
 
-import numpy as np
 import pandas as pd
 import pypsa
 from _helpers import configure_logging, set_scenario_config
@@ -33,67 +32,8 @@ from make_summary import (
     calculate_weighted_prices,  # noqa: F401
 )
 
-idx = pd.IndexSlice
 logger = logging.getLogger(__name__)
 opt_name = {"Store": "e", "Line": "s", "Transformer": "s"}
-
-
-def calculate_cumulative_cost(costs, planning_horizons):
-    cumulative_cost = pd.DataFrame(
-        index=costs.sum().index,
-        columns=pd.Series(data=np.arange(0, 0.1, 0.01), name="social discount rate"),
-    )
-
-    # discount cost and express them in money value of planning_horizons[0]
-    for r in cumulative_cost.columns:
-        cumulative_cost[r] = [
-            costs.sum()[index] / ((1 + r) ** (index[3] - planning_horizons[0]))
-            for index in cumulative_cost.index
-        ]
-
-    # integrate cost throughout the transition path
-    for r in cumulative_cost.columns:
-        for cluster in cumulative_cost.index.get_level_values(level=0).unique():
-            for opts in cumulative_cost.index.get_level_values(level=1).unique():
-                for sector_opts in cumulative_cost.index.get_level_values(
-                    level=2
-                ).unique():
-                    for alt_obj in cumulative_cost.index.get_level_values(
-                        level=4
-                    ).unique():
-                        for slack in cumulative_cost.index.get_level_values(
-                            level=5
-                        ).unique():
-                            # Not all cases
-                            default = bool(not alt_obj and not slack)
-                            mga = bool(alt_obj and slack)
-                            if mga or default:
-                                cumulative_cost.loc[
-                                    (
-                                        cluster,
-                                        opts,
-                                        sector_opts,
-                                        "cumulative cost",
-                                        alt_obj,
-                                        slack,
-                                    ),
-                                    r,
-                                ] = np.trapezoid(
-                                    x=planning_horizons,
-                                    y=cumulative_cost.loc[
-                                        idx[
-                                            cluster,
-                                            opts,
-                                            sector_opts,
-                                            planning_horizons,
-                                            alt_obj,
-                                            slack,
-                                        ],
-                                        r,
-                                    ].values,
-                                )
-
-    return cumulative_cost
 
 
 def make_summaries(networks_dict: dict) -> dict[str, pd.DataFrame]:
@@ -183,11 +123,3 @@ if __name__ == "__main__":
     df_dict["metrics"].loc["total costs"] = df_dict["costs"].sum()
 
     to_csv(df_dict)
-
-    if snakemake.params.foresight == "myopic":
-        cumulative_cost = calculate_cumulative_cost(
-            df_dict["costs"], snakemake.params.scenario["planning_horizons"]
-        )
-        cumulative_cost.to_csv(
-            "results/" + snakemake.params.RDIR + "csvs/cumulative_cost.csv"
-        )
