@@ -438,9 +438,10 @@ if "mga" in config["scenario"]:
             foresight=config_provider("foresight"),
             co2_budget=config_provider("co2_budget"),
             sector=config_provider("sector"),
+            n_header=6,
             RDIR=RDIR,
         script:
-            scripts("plot_summary_mga.py")
+            scripts("plot_summary.py")
 
     rule make_summary_mga:
         input:
