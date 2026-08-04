@@ -116,20 +116,33 @@ def mga_suffixes():
     ]
 
 
+def scenario_wildcards():
+    return {k: v for k, v in config["scenario"].items() if k != "mga"}
+
+
 def balance_map_paths(kind, w):
     """
     kind = "static" or "interactive"
     """
     cfg_key = "balance_map" if kind == "static" else "balance_map_interactive"
-    scenario = {k: v for k, v in config["scenario"].items() if k != "mga"}
 
     return expand(
         RESULTS
         + f"maps/{kind}/base_s_{{clusters}}_{{opts}}_{{sector_opts}}_{{planning_horizons}}{{mga}}"
         f"-balance_map_{{carrier}}.{'pdf'if kind== 'static' else 'html'}",
-        **scenario,
+        **scenario_wildcards(),
         run=config["run"]["name"],
         carrier=config_provider("plotting", cfg_key, "bus_carriers")(w),
+        mga=mga_suffixes(),
+    )
+
+
+def balance_timeseries_paths():
+    return expand(
+        RESULTS
+        + "graphics/balance_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
+        **scenario_wildcards(),
+        run=config["run"]["name"],
         mga=mga_suffixes(),
     )
 
@@ -150,6 +163,13 @@ rule plot_balance_maps_static:
 rule plot_balance_maps_interactive:
     input:
         lambda w: balance_map_paths("interactive", w),
+
+
+rule plot_all_balance_timeseries:
+    input:
+        balance_timeseries_paths(),
+    message:
+        "Plotting energy balance time series"
 
 
 rule plot_power_networks_clustered:

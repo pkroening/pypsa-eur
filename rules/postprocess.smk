@@ -563,6 +563,7 @@ if "mga" in config["scenario"]:
             expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
             lambda w: balance_map_paths("static", w),
             lambda w: balance_map_paths("interactive", w),
+            balance_timeseries_paths(),
 
 
 rule make_cumulative_costs:
@@ -619,19 +620,19 @@ rule plot_summary:
 rule plot_balance_timeseries:
     input:
         network=RESULTS
-        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
         rc="matplotlibrc",
     output:
         directory(
             RESULTS
-            + "graphics/balance_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+            + "graphics/balance_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
         ),
     log:
         RESULTS
-        + "logs/plot_balance_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
+        + "logs/plot_balance_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log",
     benchmark:
         RESULTS
-        + "benchmarks/plot_balance_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+        + "benchmarks/plot_balance_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
     threads: 16
     resources:
         mem_mb=10000,
