@@ -8,8 +8,8 @@ logger: pypsa
 
 scheduler: greedy
 prioritize:
-  - solve_sector_network_myopic
-  - solve_sector_network_myopic_mga
+- solve_sector_network_myopic
+- solve_sector_network_myopic_mga
 
 # ---------------------------------------------------------------------------
 # Executor
@@ -52,6 +52,7 @@ default-resources:
   threads: 1
   mem_mb: 2540
   slurm_extra: "'--mail-type=FAIL --mail-user=peter.kroening@rwth-aachen.de'"
+send_mail: true
 
 # Partitions of claix
 slurm-partition-config: partitions.yaml
