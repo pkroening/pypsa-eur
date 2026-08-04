@@ -48,7 +48,7 @@ keep-going: true
 
 default-resources:
   slurm_account: thes2299
-  runtime: 12min
+  runtime: 9min
   threads: 1
   mem_mb: 2540
   slurm_extra: "'--mail-type=FAIL --mail-user=peter.kroening@rwth-aachen.de'"
