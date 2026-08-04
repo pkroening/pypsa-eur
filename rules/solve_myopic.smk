@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-wildcard_constraint_mga = r"(_(min|max)-.{4,12}_[0-9\.]+)?"
-
 
 rule add_existing_baseyear:
     input:
@@ -36,7 +34,6 @@ rule add_existing_baseyear:
         # snakemake does not support passing functions to wildcard_constraints
         # reference: https://github.com/snakemake/snakemake/issues/2703
         planning_horizons=config["scenario"]["planning_horizons"][0],  #only applies to baseyear
-        mga=wildcard_constraint_mga,
     threads: 1
     resources:
         mem_mb=3000,
@@ -81,8 +78,6 @@ rule add_brownfield:
         benchmarks(
             "add_brownfield/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
         )
-    wildcard_constraints:
-        mga=wildcard_constraint_mga,
     threads: 4
     resources:
         mem_mb=10000,
