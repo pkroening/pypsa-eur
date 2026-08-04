@@ -122,6 +122,7 @@ rule solve_sector_network_perfect:
     threads: solver_threads
     resources:
         mem_mb=config_provider("solving", "mem"),
+        attempt=lambda w, attempt: attempt,
     params:
         solving=config_provider("solving"),
         foresight=config_provider("foresight"),

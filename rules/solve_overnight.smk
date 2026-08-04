@@ -37,6 +37,7 @@ rule solve_sector_network:
     resources:
         mem_mb=config_provider("solving", "mem_mb"),
         runtime=config_provider("solving", "runtime", default="6h"),
+        attempt=lambda w, attempt: attempt,
     params:
         solving=config_provider("solving"),
         foresight=config_provider("foresight"),

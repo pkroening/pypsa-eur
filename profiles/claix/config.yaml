@@ -37,7 +37,7 @@ max-status-checks-per-second: 0.5
 # Fault tolerance
 # ---------------------------------------------------------------------------
 # Retry each failed job.
-retries: 0
+retries: 1
 
 # Wait up to 5 s for output files to appear on the shared file system after
 # a job finishes (takes possible metadata latency into account).
