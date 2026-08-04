@@ -100,19 +100,37 @@ rule solve_sector_networks_perfect:
         "Collecting solved sector-coupled network files with perfect foresight"
 
 
+def mga_suffixes():
+    """
+    Filename suffixes of the near optimal solutions, including the empty suffix
+    of the cost optimal solution.
+    """
+    if "mga" not in config["scenario"]:
+        return [""]
+
+    mga = config["scenario"]["mga"]
+    return [""] + [
+        f"_{alternative_objective}_{slack}"
+        for alternative_objective in mga["alternative_objectives"]
+        for slack in mga["slack"]
+    ]
+
+
 def balance_map_paths(kind, w):
     """
     kind = "static" or "interactive"
     """
     cfg_key = "balance_map" if kind == "static" else "balance_map_interactive"
+    scenario = {k: v for k, v in config["scenario"].items() if k != "mga"}
 
     return expand(
         RESULTS
-        + f"maps/{kind}/base_s_{{clusters}}_{{opts}}_{{sector_opts}}_{{planning_horizons}}"
+        + f"maps/{kind}/base_s_{{clusters}}_{{opts}}_{{sector_opts}}_{{planning_horizons}}{{mga}}"
         f"-balance_map_{{carrier}}.{'pdf'if kind== 'static' else 'html'}",
-        **config["scenario"],
+        **scenario,
         run=config["run"]["name"],
         carrier=config_provider("plotting", cfg_key, "bus_carriers")(w),
+        mga=mga_suffixes(),
     )
 
 

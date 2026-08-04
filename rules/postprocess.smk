@@ -124,18 +124,18 @@ if config["foresight"] != "perfect":
     rule plot_balance_map:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             RESULTS
-            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}-balance_map_{carrier}.pdf",
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}-balance_map_{carrier}.pdf",
         log:
             RESULTS
-            + "logs/plot_balance_map/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{carrier}.log",
+            + "logs/plot_balance_map/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}_{carrier}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_balance_map/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{carrier}"
+                + "benchmarks/plot_balance_map/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}_{carrier}"
             )
         threads: 1
         resources:
@@ -151,18 +151,18 @@ if config["foresight"] != "perfect":
     rule plot_balance_map_interactive:
         input:
             network=RESULTS
-            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
             regions=resources("regions_onshore_base_s_{clusters}.geojson"),
         output:
             RESULTS
-            + "maps/interactive/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}-balance_map_{carrier}.html",
+            + "maps/interactive/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}-balance_map_{carrier}.html",
         log:
             RESULTS
-            + "logs/plot_balance_map_interactive/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{carrier}.log",
+            + "logs/plot_balance_map_interactive/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}_{carrier}.log",
         benchmark:
             (
                 RESULTS
-                + "benchmarks/plot_interactive_map/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{carrier}"
+                + "benchmarks/plot_interactive_map/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}_{carrier}"
             )
         threads: 1
         resources:
@@ -561,6 +561,8 @@ if "mga" in config["scenario"]:
             expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
             expand(RESULTS + "graphs_mga/costs.pdf", run=config["run"]["name"]),
             expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
+            lambda w: balance_map_paths("static", w),
+            lambda w: balance_map_paths("interactive", w),
 
 
 rule make_cumulative_costs:
