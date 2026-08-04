@@ -533,11 +533,21 @@ if "mga" in config["scenario"]:
         input:
             nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
             nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
-        # output:
-        #     "TODO"
+        output:
+            pathways=directory(RESULTS + "graphs_mga/pathways"),
+        log:
+            RESULTS + "logs/plot_pathways.log",
+        benchmark:
+            RESULTS + "benchmarks/plot_pathways"
+        localrule: True
+        threads: 2
+        resources:
+            mem_mb=10000,
         params:
-            mga=config["scenario"]["mga"],
-            save_path=RESULTS,
+            mga=config_provider("scenario", "mga"),
+            save_path=RESULTS + "graphs_mga/",
+        message:
+            "Plotting near optimal capacity and cost pathways"
         script:
             scripts("plot_pathways.py")
 
@@ -550,6 +560,7 @@ if "mga" in config["scenario"]:
         input:
             expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
             expand(RESULTS + "graphs_mga/costs.pdf", run=config["run"]["name"]),
+            expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
 
 
 rule make_cumulative_costs:
