@@ -564,6 +564,7 @@ if "mga" in config["scenario"]:
             lambda w: balance_map_paths("static", w),
             lambda w: balance_map_paths("interactive", w),
             balance_timeseries_paths(),
+            heatmap_timeseries_paths(),
 
 
 rule make_cumulative_costs:
@@ -649,19 +650,19 @@ rule plot_balance_timeseries:
 rule plot_heatmap_timeseries:
     input:
         network=RESULTS
-        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.nc",
         rc="matplotlibrc",
     output:
         directory(
             RESULTS
-            + "graphics/heatmap_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+            + "graphics/heatmap_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
         ),
     log:
         RESULTS
-        + "logs/plot_heatmap_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.log",
+        + "logs/plot_heatmap_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}.log",
     benchmark:
         RESULTS
-        + "benchmarks/plot_heatmap_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
+        + "benchmarks/plot_heatmap_timeseries/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}"
     threads: 16
     resources:
         mem_mb=10000,
