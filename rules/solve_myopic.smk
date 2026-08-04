@@ -137,7 +137,7 @@ rule solve_sector_network_myopic:
             RESULTS
             + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}"
         )
-    priority: 10
+    priority: 100
     shadow:
         shadow_config
     threads: solver_threads
@@ -187,7 +187,7 @@ rule solve_sector_network_myopic_mga:
             RESULTS
             + "benchmarks/solve_sector_network/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}"
         )
-    priority: 9
+    priority: 10
     shadow:
         shadow_config
     threads: solver_threads
