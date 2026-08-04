@@ -64,16 +64,16 @@ RESULTS = "results/" + RDIR
 workflow.default_target = config["run"]["default_target_rule"]
 
 onstart:
-    print("Workflos started.")
-    shell("mail -s 'PyPSA: started' peter.kroening@rwth-aachen.de ")
+    print("Workflow started.")
+    shell("mail -s 'PyPSA-Eur: Workflow started' peter.kroening@rwth-aachen.de < {log}")
 
 onsuccess:
     print("Workflow finished, no error.")
-    shell("mail -s 'PyPSA: finished, no errors' peter.kroening@rwth-aachen.de < {log}")
+    shell("mail -s 'PyPSA-Eur: Workflow finished, no errors' peter.kroening@rwth-aachen.de < {log}")
 
 onerror:
     print("Workflow got errors.")
-    shell("mail -s 'PyPSA: error(s) occurred' peter.kroening@rwth-aachen.de < {log}")
+    shell("mail -s 'PyPSA-Eur: Workflow error(s) occurred' peter.kroening@rwth-aachen.de < {log}")
 
 localrules:
     purge,
