@@ -418,6 +418,8 @@ if "mga" in config["scenario"]:
             costs=RESULTS + "csvs_mga/costs.csv",
             energy=RESULTS + "csvs_mga/energy.csv",
             balances=RESULTS + "csvs_mga/energy_balance.csv",
+            eurostat=resources("eurostat_energy_balances.csv"),
+            co2=rules.retrieve_ghg_emissions.output["csv"],
         output:
             costs=RESULTS + "graphs_mga/costs.pdf",
             energy=RESULTS + "graphs_mga/energy.pdf",
