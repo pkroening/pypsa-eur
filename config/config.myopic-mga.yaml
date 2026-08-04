@@ -4,7 +4,7 @@
 
 run:
   name: "myopic-mga"
-  default_target_rule: "plot_all_summaries"
+  default_target_rule: "all_mga"
 
 foresight: myopic
 

@@ -560,11 +560,16 @@ if "mga" in config["scenario"]:
         input:
             expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
             expand(RESULTS + "graphs_mga/costs.pdf", run=config["run"]["name"]),
+
+    rule all_mga:
+        input:
+            rules.plot_all_summaries.input,
+            rules.plot_balance_maps.input,
+            rules.plot_all_balance_timeseries.input,
+            rules.plot_all_heatmap_timeseries.input,
             expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
-            lambda w: balance_map_paths("static", w),
-            lambda w: balance_map_paths("interactive", w),
-            balance_timeseries_paths(),
-            heatmap_timeseries_paths(),
+        message:
+            "Collecting all near optimal results"
 
 
 rule make_cumulative_costs:
