@@ -38,6 +38,7 @@ import pandas as pd
 import pypsa
 import xarray as xr
 import yaml
+from linopy.constants import SolverStatus, TerminationCondition
 from linopy.remote.oetc import OetcCredentials, OetcHandler, OetcSettings
 from pypsa.descriptors import get_activity_mask
 from pypsa.descriptors import get_switchable_as_dense as get_as_dense
@@ -1593,23 +1594,22 @@ if __name__ == "__main__":
             )
 
     logger.info(f"Maximum memory usage: {mem.mem_usage}")
+    logger.info(f"Solving status '{status}' with termination condition '{condition}'")
 
     # Check results
     if not rolling_horizon:
-        if status != "ok":
-            logger.warning(
-                f"Solving status '{status}' with termination condition '{condition}'"
-            )
+        if status != SolverStatus.ok:
+            logger.warning(f"Solving status '{status}' is not {SolverStatus.ok}")
         check_objective_value(n, snakemake.params.solving)
 
-    if "warning" in status:
-        raise RuntimeError("Solving status 'warning'. Discarding solution.")
-
-    if "infeasible" in condition:
+    if TerminationCondition.infeasible in condition:
         labels = n.model.compute_infeasibilities()
         logger.info(f"Labels:\n{labels}")
         n.model.print_infeasibilities()
         raise RuntimeError("Solving status 'infeasible'. Infeasibilities computed.")
+
+    elif SolverStatus.warning in status:
+        raise RuntimeError("Solving status 'warning'. Discarding solution.")
 
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
     n.export_to_netcdf(snakemake.output.network)
