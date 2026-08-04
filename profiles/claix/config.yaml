@@ -82,6 +82,7 @@ show-failed-logs: false
 # ---------------------------------------------------------------------------
 # Rulespecific resources on claix
 # ---------------------------------------------------------------------------
+scheduler: greedy
 prioritize:
   - solve_sector_network_myopic
   - solve_sector_network_myopic_mga
