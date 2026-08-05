@@ -1225,7 +1225,7 @@ solving:
       random_seed: 123
       run_crossover: 'off'
     "gurobi-default":
-      threads: 16
+      threads: 32
       method: 2
       crossover: 0
       BarConvTol: 1.0e-05
