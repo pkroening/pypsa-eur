@@ -47,12 +47,11 @@ latency-wait: 5
 keep-going: true
 
 default-resources:
-  slurm_account: thes2299
+  slurm_account: default
   runtime: 9min
   threads: 1
   mem_mb: 2540
   slurm_extra: "'--mail-type=FAIL --mail-user=peter.kroening@rwth-aachen.de'"
-send_mail: true
 
 # Partitions of claix
 slurm-partition-config: partitions.yaml
