@@ -38,7 +38,7 @@ scenario:
                 "H2 Electrolysis": 1
 
       # Autarky
-      min-imports_elec:
+      min-import_energy:
         weights:
           varying:
             Link:
