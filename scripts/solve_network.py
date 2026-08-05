@@ -1604,16 +1604,21 @@ if __name__ == "__main__":
     # Check results
     if not rolling_horizon:
         if status != SolverStatus.ok:
-            logger.warning(f"Solving status '{status}' is not {SolverStatus.ok}")
+            logger.warning(
+                f"Solving status '{status}' with termination condition '{condition}'"
+            )
         check_objective_value(n, snakemake.params.solving)
 
-    if TerminationCondition.infeasible in condition:
+    if condition in [
+        TerminationCondition.infeasible,
+        TerminationCondition.infeasible_or_unbounded,
+    ]:
         labels = n.model.compute_infeasibilities()
         logger.info(f"Labels:\n{labels}")
         n.model.print_infeasibilities()
         raise RuntimeError("Solving status 'infeasible'. Infeasibilities computed.")
 
-    elif SolverStatus.warning in status:
+    if status == SolverStatus.warning:
         raise RuntimeError("Solving status 'warning'. Discarding solution.")
 
     n.meta = dict(snakemake.config, **dict(wildcards=dict(snakemake.wildcards)))
