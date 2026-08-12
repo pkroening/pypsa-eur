@@ -47,7 +47,7 @@ scenario:
               s:
                 # ignored
 
-      min-imports-elec:
+      min-imports_elec:
         weights:
           varying:
             Link:
@@ -57,7 +57,7 @@ scenario:
               s:
                 AC: 1
 
-      min-imports-fossil:
+      min-imports_fossil:
         weights:
           varying:
             Link:
