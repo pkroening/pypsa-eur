@@ -131,6 +131,47 @@ def split_expression_by_region(
     ).sum()
 
 
+def country_grouper(
+    n: pypsa.Network,
+    c: str,
+    port: str = "",
+    nice_names: bool = False,
+) -> pd.Series:
+    """
+    Group components by the country of their first port that has one.
+
+    Drop-in replacement for `pypsa.statistics.groupers.country`, usable as the
+    `groupby` argument of both `n.statistics` and `n.optimize.expressions`.
+    The pypsa grouper reads a single port, which leaves everything anchored on an
+    EU-wide commodity bus without a country: conventional generation is modelled
+    as a link from the EU fuel bus, so its costs would fall outside every region.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    c : str
+        Name of the component class
+    port : str
+        Unused. Kept for the signature the pypsa statistics accessors call with
+    nice_names : bool
+        Unused. Kept for the signature the pypsa statistics accessors call with
+
+    Returns
+    -------
+    pd.Series
+        Country per component
+    """
+    static = n.components[c].static
+    country = pd.Series("", index=static.index)
+    for bus in sorted(col for col in static.columns if col.startswith("bus")):
+        country = country.where(
+            country != "", static[bus].map(n.buses.country).fillna("")
+        )
+
+    return country.rename("country")
+
+
 def split_df_by_region(
     df: pd.DataFrame, region: list[str]
 ) -> tuple[pd.DataFrame, pd.DataFrame]:

@@ -7,9 +7,9 @@ import pandas as pd
 import pypsa
 from linopy import LinearExpression, merge
 from pypsa.descriptors import nominal_attrs
-from pypsa.statistics import groupers
 
 from scripts.prepare_mga_regional import (
+    country_grouper,
     get_cross_border_components,
     split_df_by_region,
     split_expression_by_region,
@@ -58,8 +58,8 @@ def build_cost_expression(
     Build the capital or operational expenditures of the network as a linear expression.
 
     The counterpart of `n.statistics.capex`/`n.statistics.opex`, grouped by country in
-    the same way. Capex of non-extendable components only enters as a constant term and
-    is dropped, see `non_extendable_capex`.
+    the same way, see `country_grouper`. Capex of non-extendable components only enters
+    as a constant term and is dropped, see `non_extendable_capex`.
 
     Parameters
     ----------
@@ -73,7 +73,9 @@ def build_cost_expression(
     LinearExpression
         Expenditures grouped by component and country
     """
-    return getattr(n.optimize.expressions, cost_type)(groupby="country").reset_const()
+    return getattr(n.optimize.expressions, cost_type)(
+        groupby=country_grouper
+    ).reset_const()
 
 
 def non_extendable_capex(n: pypsa.Network) -> pd.Series:
@@ -99,8 +101,7 @@ def non_extendable_capex(n: pypsa.Network) -> pd.Series:
         if static.empty:
             continue
         fixed = static[~static[f"{attr}_extendable"]]
-        port = "" if "bus" in static.columns else "0"
-        country = groupers.country(n, component, port=port)[fixed.index]
+        country = country_grouper(n, component)[fixed.index]
         capex.append((fixed[attr] * fixed["capital_cost"]).groupby(country).sum())
 
     return pd.concat(capex)
@@ -348,8 +349,8 @@ def set_mga_constraint(
 
     # Get cost-optimal network and values
     n_opt = pypsa.Network(snakemake.input.network_opt)
-    capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")
-    opex = n_opt.statistics.opex(groupby="country", groupby_method="sum")
+    capex = n_opt.statistics.capex(groupby=country_grouper, groupby_method="sum")
+    opex = n_opt.statistics.opex(groupby=country_grouper, groupby_method="sum")
     del n_opt
 
     # Costs of the network to be optimized, grouped like the statistics above
