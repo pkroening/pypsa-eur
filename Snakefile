@@ -63,7 +63,9 @@ scripts = script_path_provider(PROJ_DIR)
 RESULTS = "results/" + RDIR
 workflow.default_target = config["run"]["default_target_rule"]
 
-MAIL = True
+MAIL = False
+
+
 onstart:
     print("Workflow started.")
     if MAIL:
