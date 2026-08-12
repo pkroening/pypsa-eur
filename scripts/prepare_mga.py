@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 import logging
+from collections import defaultdict
 
 import pandas as pd
 import pypsa
@@ -19,35 +20,26 @@ logger = logging.getLogger(__name__)
 pypsa.network.power_flow.logger.setLevel(logging.WARNING)
 
 
-def parse_optimization_sense(
-    alternative_objective: str,
-) -> int:
+def parse_optimization_sense(alternative_objective: str) -> int:
     """
-    Parse the optimization sense to -1 or +1
+    Parse the optimization sense of an alternate objective function.
 
     Parameters
     ----------
-    sense: str | int
-        Optimization sense of alternate objective function
+    alternative_objective : str
+        Name of the alternate objective function, e.g. "min-capex"
 
     Returns
     -------
-    sense : int
-        Optimization sense of alternate objective function
+    int
+        +1 for minimization, -1 for maximization
     """
     sense = alternative_objective.split(sep="-")[0]
-    if (isinstance(sense, str) and sense.startswith("min")) or (
-        isinstance(sense, int) and sense > 0
-    ):
-        sense = +1
-    elif (isinstance(sense, str) and sense.startswith("max")) or (
-        isinstance(sense, int) and sense < 0
-    ):
-        sense = -1
-    else:
-        raise ValueError(f"Could not parse optimization sense {sense}")
-
-    return sense
+    if sense.startswith("min"):
+        return +1
+    if sense.startswith("max"):
+        return -1
+    raise ValueError(f"Could not parse optimization sense {sense}")
 
 
 def build_cost_expression(
@@ -83,7 +75,10 @@ def non_extendable_capex(n: pypsa.Network) -> pd.Series:
     Calculate the capital expenditures of non-extendable components, grouped by country.
 
     This is the share of `n.statistics.capex` that is constant during optimization and
-    therefore not part of `build_cost_expression`.
+    therefore not part of `build_cost_expression`. It has to be calculated here rather
+    than read off the expression: `n.optimize.expressions.capex` aligns the fixed
+    capacities with the extendable variables, whose indexes are disjoint, so the
+    constant silently drops out for every component class that has extendable members.
 
     Parameters
     ----------
@@ -143,6 +138,29 @@ def build_cost_objective(
     return new_obj * sense
 
 
+def carrier_weights(static: pd.DataFrame, carriers: dict | None) -> pd.Series:
+    """
+    Spread the carrier weights of the mga config over the components.
+
+    Parameters
+    ----------
+    static : pd.DataFrame
+        Static data of the component class
+    carriers : dict | None
+        Weight per carrier, or None to weight nothing
+
+    Returns
+    -------
+    pd.Series
+        Weight per component
+    """
+    weights = pd.Series(0.0, index=static.index)
+    for carrier, const in (carriers or {}).items():
+        weights[static["carrier"] == carrier] = const
+
+    return weights
+
+
 def build_weighted_objective(
     n: pypsa.Network,
     mga_config: dict,
@@ -151,6 +169,9 @@ def build_weighted_objective(
 ) -> LinearExpression:
     """
     Build an objective function from the carrier weights given in the mga config.
+
+    Import objectives weight the connectors crossing the region border by their
+    direction, everything else weights components by their carrier.
 
     Parameters
     ----------
@@ -168,83 +189,64 @@ def build_weighted_objective(
     LinearExpression
         Alternate objective function
     """
-    # Get linopy model
     m = n.model
+    weights_config = mga_config["alternative_objectives"][alternative_objective][
+        "weights"
+    ]
 
-    # Build objective function
-    expr_config = mga_config["alternative_objectives"][alternative_objective]
-    weights = {}
-
-    if "import" in alternative_objective:
+    minimize_imports = "import" in alternative_objective
+    cross_border = None
+    if minimize_imports:
+        if sense < 0:
+            raise NotImplementedError(
+                "Maximizing imports is not supported: the positive part taken below "
+                "only bounds the flows from above when the objective is minimized."
+            )
         region = mga_config.get("region", None)
         if not region:
             raise ValueError(
                 "For optimization of cross border components a region has to be defined in the mga config."
             )
-        cross_border_components = get_cross_border_components(region, n)
+        cross_border = get_cross_border_components(region, n)
 
-    else:
-        cross_border_components = False
+    weights = defaultdict(dict)
 
-    static_weights = expr_config["weights"].get("static", {})
-    for component, attrs in static_weights.items():
+    for component, attrs in weights_config.get("static", {}).items():
         static = n.components[component].static
-        vars = {}
-        for var, carriers in attrs.items():
-            w = pd.Series(0.0, index=static.index)
-            for carrier, const in carriers.items():
-                w[(static["carrier"] == carrier) & static["p_nom_extendable"]] = const
-            vars[var] = w
-        weights[component] = vars
+        extendable = static[f"{nominal_attrs[component]}_extendable"]
+        for attr, carriers in attrs.items():
+            weights[component][attr] = carrier_weights(static, carriers).where(
+                extendable, 0.0
+            )
 
-    varying_weights = expr_config["weights"].get("varying", {})
-    for component, attrs in varying_weights.items():
+    for component, attrs in weights_config.get("varying", {}).items():
         static = n.components[component].static
-        vars = {}
-        for var, carriers in attrs.items():
-            if cross_border_components:
-                w = cross_border_components[component].astype(float)
-                if carriers:
-                    carrier_weights = pd.Series(0.0, index=static.index)
-                    for carrier, const in carriers.items():
-                        carrier_weights[static["carrier"] == carrier] = const
-                    w = w * carrier_weights
+        for attr, carriers in attrs.items():
+            if cross_border is None:
+                w = carrier_weights(static, carriers)
             else:
-                w = pd.Series(0.0, index=static.index)
-                for carrier, const in carriers.items():
-                    # TODO: add regional for "tech"? -> probably does weird operation then
-                    w[static["carrier"] == carrier] = const
-            vars[var] = w
-        weights[component] = vars
+                w = cross_border[component].astype(float)
+                if carriers:
+                    w *= carrier_weights(static, carriers)
+            weights[component][attr] = w
 
-    new_expr = []
+    terms = []
     for component, attrs in weights.items():
-        for attr, coeffs in attrs.items():
+        for attr, w in attrs.items():
             variable = m[f"{component}-{attr}"]
-            expr = variable * coeffs.reindex(variable.indexes["name"], fill_value=0)
+            expr = variable * w.reindex(variable.indexes["name"], fill_value=0)
             if "snapshot" in variable.dims:
                 expr = expr * n.snapshot_weightings.objective
-            new_expr.append(expr * sense)
+            terms.append(expr * sense)
 
-    if "import" in alternative_objective:
-        flows = merge(new_expr)
-        imports = m.add_variables(name="imports", coords=flows.coords, lower=0)
+    new_obj = merge(terms)
 
-        name = "imports_sign"
-        if name not in n.global_constraints.index:
-            n.add(
-                "GlobalConstraint",
-                name=name,
-                type=name,
-            )
-        m.add_constraints(
-            flows - imports <= 0,
-            name=f"GlobalConstraint-{name}",
-        )
+    if minimize_imports:
+        # Count only the positive part of every flow, so that exports on one
+        # connector cannot offset imports on another
+        imports = m.add_variables(name="imports", coords=new_obj.coords, lower=0)
+        m.add_constraints(new_obj - imports <= 0, name="imports_sign")
         new_obj = imports.sum()
-
-    else:
-        new_obj = merge(new_expr)
 
     return new_obj
 
@@ -253,7 +255,7 @@ def set_mga_objective(
     n: pypsa.Network,
     mga_config: dict,
     alternative_objective: str,
-):
+) -> None:
     """
     Set the new objective function for modelling to generate alternatives.
 
@@ -261,26 +263,20 @@ def set_mga_objective(
     ----------
     n : pypsa.Network
         Network to be optimized
-
     mga_config : dict
         Configuration for mga study
     alternative_objective : str
         Name of the alternate objective function
     """
-    # Parse sense and objective
     sense = parse_optimization_sense(alternative_objective)
     cost_type = alternative_objective.split(sep="-", maxsplit=1)[-1]
 
-    # Build objective function
     if cost_type in ("capex", "opex"):
-        new_obj = build_cost_objective(n, mga_config, cost_type, sense)
+        n.model.objective = build_cost_objective(n, mga_config, cost_type, sense)
     else:
-        new_obj = build_weighted_objective(n, mga_config, alternative_objective, sense)
-
-    n.model.objective = new_obj
-
-    # Save meta data
-    n.meta["sense"] = sense
+        n.model.objective = build_weighted_objective(
+            n, mga_config, alternative_objective, sense
+        )
 
 
 def calculate_slack_myopic(
@@ -325,21 +321,25 @@ def calculate_slack_myopic(
 def set_mga_constraint(
     n: pypsa.Network,
     snakemake,
-):
+) -> None:
     """
-    Set constraint for former objective
+    Constrain the system costs to stay within the slack around the cost optimum.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    snakemake
     """
-    # Get linopy model
     m = n.model
 
-    # Slack
     slack = float(snakemake.wildcards.slack)
     if snakemake.params.foresight == "myopic":
-        current_horizon = int(snakemake.wildcards.planning_horizons)
-        planning_horizons = snakemake.params.planning_horizons
-        slack_initial_fraction = snakemake.params.mga.get("slack_initial_fraction", 1.0)
         slack = calculate_slack_myopic(
-            slack, slack_initial_fraction, current_horizon, planning_horizons
+            slack,
+            snakemake.params.mga.get("slack_initial_fraction", 1.0),
+            int(snakemake.wildcards.planning_horizons),
+            snakemake.params.planning_horizons,
         )
 
     def calc_bound(capex: pd.Series, opex: pd.Series, capex_const: pd.Series) -> float:
@@ -397,16 +397,12 @@ def set_mga_constraint(
             )
         m.add_constraints(expr <= obj_bound, name=f"GlobalConstraint-{c_name}")
 
-    # Save meta data
-    obj_bounds = [bound for _, bound in constraints.values()]
-    n.meta["obj_bound"] = tuple(obj_bounds) if region else obj_bounds[0]
-
 
 def prepare_mga(
     n: pypsa.Network,
     snapshots: pd.DatetimeIndex,
     snakemake,
-):
+) -> None:
     """
     Prepare the network for modelling to generate alternatives by restricting costs and introducing a new objective method.
 
@@ -419,8 +415,7 @@ def prepare_mga(
         The snapshots of the network
     snakemake
     """
-    mga_config = snakemake.params.mga
-    alternative_objective = snakemake.wildcards.alternative_objectives
-
     set_mga_constraint(n, snakemake)
-    set_mga_objective(n, mga_config, alternative_objective)
+    set_mga_objective(
+        n, snakemake.params.mga, snakemake.wildcards.alternative_objectives
+    )

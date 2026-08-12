@@ -17,129 +17,95 @@ logger = logging.getLogger(__name__)
 INTERFACE_P_NOM = 1e7
 
 
-# Regional utils
 def get_buses_of_regions(
     n: pypsa.Network,
     region: list[str],
-    eu_assignment: None | str = None,
-) -> tuple[pd.Index]:
+    eu_assignment: str | None = None,
+) -> tuple[pd.Index, pd.Index]:
     """
-    Get list of buses being in- or outside of region.
+    Get the buses in- and outside of the region.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    region : list[str]
+        Countries being part of region
+    eu_assignment : str | None
+        Whether to assign the EU-wide buses to "in_region", "out_region", "both"
+        or, if None, to neither
+
+    Returns
+    -------
+    tuple[pd.Index, pd.Index]
+        Buses inside, buses outside of region
+    """
+    eu = n.buses["location"] == "EU"
+    inside = n.buses["country"].isin(region) & ~eu
+    outside = ~inside & ~eu
+
+    if eu_assignment in ("in_region", "both"):
+        inside |= eu
+    if eu_assignment in ("out_region", "both"):
+        outside |= eu
+
+    return n.buses.index[inside], n.buses.index[outside]
+
+
+def get_cross_border_components(
+    region: list[str],
+    n: pypsa.Network,
+    ignore_co2: bool = True,
+) -> dict[str, pd.Series]:
+    """
+    Sign the connectors crossing the region border: +1 into, -1 out of the region.
+
+    The sign is relative to `bus0`, so that multiplying it with the flow variable
+    yields a positive value for an import and a negative one for an export.
 
     Parameters
     ----------
     region : list[str]
         Countries being part of region
     n : pypsa.Network
-        The PyPSA network instance
-    eu_assignment : None | str
-        Weather to assign the eu buses to the region, outside, both or none of them
+        Network to be optimized
+    ignore_co2 : bool
+        Treat co2 and atmosphere buses as being inside the region, so that
+        emissions are not counted as a traded commodity
 
     Returns
     -------
-    tuple[pd.Index]
-        buses inside, buses outside
+    dict[str, pd.Series]
+        Sign per component, for "Line" and "Link"
     """
-    # Get masks
-    mask_eu = n.buses["location"] == "EU"
+    if not n.transformers.empty:
+        raise NotImplementedError("Cross-border transformers are not accounted for.")
 
-    mask_inside = pd.Series(index=n.buses.index, data=False)
-    for country in region:
-        mask_inside += n.buses["country"] == country
-
-    mask_outside = ~mask_inside & ~mask_eu
-
-    # Assign eu
-    if eu_assignment == "in_region" or eu_assignment == "both":
-        mask_inside += mask_eu
-    if eu_assignment == "out_region" or eu_assignment == "both":
-        mask_outside += mask_eu
-
-    # Get buses
-    buses_inside = n.buses[mask_inside].index
-    buses_outside = n.buses[mask_outside].index
-    buses_neither = n.buses[~mask_inside & ~mask_outside].index
-    return buses_inside, buses_outside, buses_neither
-
-
-def get_cross_border_components(
-    region: list[str],
-    n: pypsa.Network,
-    ignore_c02: bool = True,
-) -> dict[str, pd.Series | None]:
-    buses_inside, buses_outside, buses_neither = get_buses_of_regions(
-        region=region, n=n, eu_assignment="out_region"
+    buses_inside, buses_outside = get_buses_of_regions(
+        n=n, region=region, eu_assignment="out_region"
     )
-    # ignore atmosphere and co2 flows
-    if ignore_c02:
-        for pat in ("atmosphere", "co2"):
-            buses_inside = buses_inside.append(
-                n.buses[n.buses.index.str.contains(pat)].index
-            )
-        buses_inside = buses_inside.drop_duplicates()
+    if ignore_co2:
+        buses_inside = buses_inside.union(
+            n.buses.index[n.buses.index.str.contains("co2|atmosphere")]
+        )
 
-    cross_border_components = dict()
-    connectors = ["Line", "Link"]
-    for component in n.components:
-        bus_col = [col for col in component.static.columns if "bus" in col]
-        if component.name in connectors:
-            # Get bools w
-            in_region = component.static[bus_col].isin(buses_inside)
-            out_region = component.static[bus_col].isin(buses_outside)
+    cross_border = {}
+    for c in ("Line", "Link"):
+        static = n.components[c].static
+        bus_cols = [col for col in static.columns if col.startswith("bus")]
+        inside = static[bus_cols].isin(buses_inside)
+        outside = static[bus_cols].isin(buses_outside)
 
-            # Reference bus
-            b0 = "bus0"
+        # Unused ports fall in neither set, co2 buses in both; skip both cases
+        crossing = inside ^ outside
+        into = (inside.gt(inside["bus0"], axis=0) & crossing).any(axis="columns")
+        out_of = (inside.lt(inside["bus0"], axis=0) & crossing).any(axis="columns")
 
-            # Get mask
-            ignore = in_region == out_region
-            flow_in = in_region.gt(in_region[b0], axis=0) & ~ignore
-            flow_out = in_region.lt(in_region[b0], axis=0) & ~ignore
+        cross_border[c] = (
+            pd.Series(0, index=static.index).mask(into, 1).mask(out_of, -1)
+        )
 
-            # Get signs
-            cross_border = pd.Series(0, index=in_region.index)
-            cross_border[flow_in.any(axis="columns")] = +1
-            cross_border[flow_out.any(axis="columns")] = -1
-
-        elif len(bus_col) <= 1:
-            continue
-
-        else:
-            raise ValueError(
-                f"Got unexpected component that might have multiple buses: {component}"
-            )
-
-        cross_border_components[component.name] = cross_border
-
-    return cross_border_components
-
-
-def split_expression_by_region(
-    expr: LinearExpression, region: list[str]
-) -> tuple[LinearExpression, LinearExpression]:
-    """
-    Split an expression grouped by country into its in- and out-of-region part.
-
-    Uses the same country assignment as `split_df_by_region` does for the
-    corresponding `n.statistics` values.
-
-    Parameters
-    ----------
-    expr : LinearExpression
-        Expression with a ("component", "country") group index, as returned by
-        the `n.optimize.expressions` accessor with `groupby="country"`
-    region : list[str]
-        Countries being part of region
-
-    Returns
-    -------
-    tuple[LinearExpression, LinearExpression]
-        Expression inside, expression outside of region
-    """
-    groups = expr.indexes["group"]
-    in_region = groups.get_level_values("country").isin(region)
-    return expr.sel(group=groups[in_region]).sum(), expr.sel(
-        group=groups[~in_region]
-    ).sum()
+    return cross_border
 
 
 def country_grouper(
@@ -219,6 +185,7 @@ def regionalise_eu_buses(
         logger.warning(f"No EU-wide bus for carrier(s) {sorted(missing)}, skipping.")
 
     bus_cols = [col for col in n.links.columns if col.startswith("bus")]
+    countries = [c for c in n.buses["country"].unique() if c]
 
     for eu_bus, bus in eu_buses.iterrows():
         interface = f"{bus.carrier} interface"
@@ -227,24 +194,20 @@ def regionalise_eu_buses(
 
         # A previous horizon carries its links over already routed, but not the
         # buses they point at. Send those back to the EU bus and re-route below.
-        national = {
-            f"{country} {bus.carrier}"
-            for country in n.buses["country"].unique()
-            if country
-        }
-        for col in bus_cols:
-            carried_over = n.links[col].isin(national) & ~n.links[col].isin(
-                n.buses.index
-            )
-            n.links.loc[carried_over, col] = eu_bus
+        national = [f"{country} {bus.carrier}" for country in countries]
+        ports = n.links[bus_cols]
+        dangling = ports.isin(national) & ~ports.isin(n.buses.index)
+        n.links[bus_cols] = ports.mask(dangling, eu_bus)
 
         # Links on the EU bus, excluding the interfaces of an earlier call
         on_eu_bus = n.links[bus_cols].isin([eu_bus]).any(axis="columns")
         connected = n.links.index[on_eu_bus & (n.links["carrier"] != interface)]
-        country = country_grouper(n, "Link")[connected]
 
         # Links without any national port stay on the EU bus, they are pooled supply
-        for name in country[country != ""].unique():
+        country = country_grouper(n, "Link")[connected]
+        country = country[country != ""]
+
+        for name, group in country.groupby(country):
             national_bus = f"{name} {bus.carrier}"
             if national_bus not in n.buses.index:
                 n.add(
@@ -272,14 +235,14 @@ def regionalise_eu_buses(
                 )
 
             # Move the national side of every connected link onto the national bus
-            move = country.index[country == name]
-            for col in bus_cols:
-                on_bus = n.links.loc[move, col] == eu_bus
-                n.links.loc[move[on_bus], col] = national_bus
+            ports = n.links.loc[group.index, bus_cols]
+            n.links.loc[group.index, bus_cols] = ports.mask(
+                ports == eu_bus, national_bus
+            )
 
         logger.info(
-            f"Routed {len(country[country != ''])} link(s) on {eu_bus} "
-            f"over {country[country != ''].nunique()} national bus(es)."
+            f"Routed {len(country)} link(s) on {eu_bus} "
+            f"over {country.nunique()} national bus(es)."
         )
 
     # The interface links leave pypsa-eur's own link columns unset, and `reversed`
@@ -290,94 +253,124 @@ def regionalise_eu_buses(
 def split_df_by_region(
     df: pd.DataFrame, region: list[str]
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    country = df.index.get_level_values("country")
-    in_mask = country.isin(region)
-    return df.loc[in_mask], df.loc[~in_mask]
-
-
-# Prepare network
-def prepare_mga_regional(
-    n: pypsa.Network,
-    snakemake,
-):
     """
-    Prepare the network for a regional modelling to generate alternatives by merging with regions of the optimal network, which should not be expanded.
+    Split statistics grouped by country into their in- and out-of-region part.
 
     Parameters
     ----------
-    n: pypsa.Network
-        Network to be optimized
-    snakemake
+    df : pd.DataFrame
+        Values with a "country" index level, as returned by the `n.statistics`
+        accessor with `groupby=country_grouper`
+    region : list[str]
+        Countries being part of region
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame]
+        Values inside, values outside of region
     """
-    # Get region
-    region = snakemake.params.mga.get("region", None)
-    buses_in, buses_out, buses_neither = get_buses_of_regions(
-        region=region, n=n, eu_assignment="in_region"
+    in_region = df.index.get_level_values("country").isin(region)
+    return df.loc[in_region], df.loc[~in_region]
+
+
+def split_expression_by_region(
+    expr: LinearExpression, region: list[str]
+) -> tuple[LinearExpression, LinearExpression]:
+    """
+    Split an expression grouped by country into its in- and out-of-region part.
+
+    Uses the same country assignment as `split_df_by_region` does for the
+    corresponding `n.statistics` values.
+
+    Parameters
+    ----------
+    expr : LinearExpression
+        Expression with a ("component", "country") group index, as returned by
+        the `n.optimize.expressions` accessor with `groupby=country_grouper`
+    region : list[str]
+        Countries being part of region
+
+    Returns
+    -------
+    tuple[LinearExpression, LinearExpression]
+        Expression inside, expression outside of region
+    """
+    groups = expr.indexes["group"]
+    in_region = groups.get_level_values("country").isin(region)
+    return (
+        expr.sel(group=groups[in_region]).sum(),
+        expr.sel(group=groups[~in_region]).sum(),
     )
 
-    # Load optimal network
+
+def prepare_mga_regional(
+    n: pypsa.Network,
+    snakemake,
+) -> None:
+    """
+    Replace everything outside the region by the cost-optimal network.
+
+    Only the region is free to deviate from the cost optimum; outside of it the
+    cost-optimal capacities are fixed and may merely be redispatched.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized, modified in place
+    snakemake
+    """
+    region = snakemake.params.mga["region"]
+    buses_in, buses_out = get_buses_of_regions(
+        n=n, region=region, eu_assignment="in_region"
+    )
+
     n_opt = pypsa.Network(snakemake.input.network_opt)
-    if not n.buses.index.equals(n_opt.buses.index):
+    if set(n.buses.index) != set(n_opt.buses.index):
         raise IndexError(
-            "The buses of the cost optimized network and the network for mga differ unexpectedly."
+            "The buses of the cost optimized network and the network for mga differ: "
+            f"{sorted(set(n.buses.index) ^ set(n_opt.buses.index))}"
         )
 
-    ## Merge networks
-    components_to_skip = n.standard_type_components
-    components_to_skip.update({"Carrier", "Global Constraints"})
-    for comp, comp_opt in zip(n.components, n_opt.components):
-        if comp.name != comp_opt.name:
-            raise ValueError(
-                "While iterating through the component classes of the networks, different are reached."
-            )
+    # Carriers and global constraints are network-wide, so keep the ones of `n`;
+    # sub networks are rebuilt from the topology anyway
+    components_to_skip = set(n.standard_type_components) | {
+        "Carrier",
+        "GlobalConstraint",
+        "SubNetwork",
+    }
 
-        # TODO: remove
-        # comp.static.sort_index().to_csv(f"dev/nw_df/static/{comp.name}-pre_regio.csv")
-        # comp_opt.static.sort_index().to_csv(f"dev/nw_df/static/{comp.name}-opt.csv")
-        # for _prop, _df in comp_opt.dynamic.items():
-        #     _df.to_csv(f"dev/nw_df/dynamic/{comp.name}_{_prop}-opt.csv")
-
-        # Skip some components
-        if comp.name in components_to_skip:
+    for name in [c.name for c in n.components]:
+        if name in components_to_skip:
             continue
+        comp, comp_opt = n.components[name], n_opt.components[name]
 
         # Disable extension and fix optimal value
-        attributes = [
-            col[: -len("_extendable")]
+        attrs = [
+            col.removesuffix("_extendable")
             for col in comp.static.columns
-            if "_nom_extendable" in col
+            if col.endswith("_nom_extendable")
         ]
-        comp_opt.static[attributes] = comp_opt.static[
-            [f"{attr}_opt" for attr in attributes]
-        ]
-        comp_opt.static[[f"{attr}_extendable" for attr in attributes]] = False
+        comp_opt.static[attrs] = comp_opt.static[[f"{attr}_opt" for attr in attrs]]
+        comp_opt.static[[f"{attr}_extendable" for attr in attrs]] = False
 
         # Get components inside and outside of region
-        if comp.name == "Bus":
-            out_region = buses_out
-            in_region_opt = buses_in
+        if name == "Bus":
+            out_region, in_region_opt = buses_out, buses_in
         else:
-            bus_col = [c for c in comp.static.columns if "bus" in c]
+            bus_cols = [col for col in comp.static.columns if col.startswith("bus")]
+            in_region = comp.static[bus_cols].isin(buses_in).any(axis="columns")
+            out_region = comp.static.index[~in_region]
+            in_region_opt = comp_opt.static.index[
+                comp_opt.static[bus_cols].isin(buses_in).any(axis="columns")
+            ]
 
-            in_region = comp.static[bus_col].isin(buses_in)
-            out_region = in_region[~in_region.any(axis="columns")].index
-
-            in_region_opt = comp_opt.static[bus_col].isin(buses_in)
-            in_region_opt = in_region_opt[in_region_opt.any(axis="columns")].index
-
-        if out_region.intersection(in_region_opt).any():
+        overlap = out_region.intersection(in_region_opt)
+        if not overlap.empty:
             raise RuntimeError(
-                f"There are components both inside and outside of the region: {out_region.intersection(in_region_opt).to_list()}"
+                f"There are {name}s both inside and outside of the region: {overlap.to_list()}"
             )
 
-        # Remove components
-        n.remove(comp.name, out_region)
-        n_opt.remove(comp_opt.name, in_region_opt)
-    n.merge(n_opt, components_to_skip=components_to_skip, inplace=True, with_time=False)
+        n.remove(name, out_region)
+        n_opt.remove(name, in_region_opt)
 
-    # Delete optimal network
-    del n_opt
-
-    # TODO: remove
-    # for comp in n.components:
-    #     comp.static.sort_index().to_csv(f"dev/nw_df/static/{comp.name}-post_regio.csv")
+    n.merge(n_opt, components_to_skip=components_to_skip, inplace=True)
