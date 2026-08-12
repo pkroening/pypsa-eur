@@ -77,7 +77,6 @@ def set_mga_objective(
     expr_config = mga_config["alternative_objectives"][alternative_objective]
     weights = {}
 
-    cross_border_components = False
     if "import" in alternative_objective:
         region = mga_config.get("region", None)
         if not region:
@@ -85,6 +84,9 @@ def set_mga_objective(
                 "For optimization of cross border components a region has to be defined in the mga config."
             )
         cross_border_components = get_cross_border_components(region, n)
+
+    else:
+        cross_border_components = False
 
     static = expr_config["weights"].get("static", {})
     for component in static:
