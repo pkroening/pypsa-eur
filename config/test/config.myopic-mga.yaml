@@ -42,7 +42,7 @@ scenario:
           varying:
             Link:
               p:
-                # 
+                # ignored
             Line:
               s:
                 # ignored
@@ -52,7 +52,7 @@ scenario:
           varying:
             Link:
               p:
-                AC: 1
+                DC: 1
             Line:
               s:
                 AC: 1
