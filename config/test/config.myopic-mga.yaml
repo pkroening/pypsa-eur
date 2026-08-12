@@ -69,6 +69,14 @@ scenario:
                 coal: 1
                 lignite: 1
 
+
+      # Costs
+      # objective function is split
+      min-capex:
+      max-capex:
+      min-opex:
+      max-opex:
+
       # Technology focus
       min-tech_H2_El:
         weights:

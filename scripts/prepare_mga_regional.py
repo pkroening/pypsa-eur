@@ -1,10 +1,8 @@
 # SPDX-FileCopyrightText: Peter Kröning and Contributors to <https://github.com/koen-vg/eu-hydrogen>
 #
 # SPDX-License-Identifier: MIT
-import numpy as np
 import pandas as pd
 import pypsa
-import xarray as xr
 from linopy import LinearExpression
 
 
@@ -104,79 +102,33 @@ def get_cross_border_components(
     return cross_border_components
 
 
-def get_variable_region_mapping(n: pypsa.Network, region: list[str]) -> pd.Series:
-
-    buses_in, buses_out, buses_neither = get_buses_of_regions(
-        region=region, n=n, eu_assignment="out_region"
-    )
-    cross_border_components = get_cross_border_components(region, n)
-
-    # Determine variable label region mapping
-    in_region_by_label = []
-    for var_name, variable in n.model.variables.items():
-        # Get component corresponding to variable
-        comp = var_name.split("-")[0]
-        comp = n.components[comp]
-
-        # Get region information
-        bus0 = "bus" if "bus" in comp.static.columns else "bus0"
-        in_region = comp.static[bus0].isin(buses_in).astype(float)
-
-        cbc = cross_border_components.get(comp.name, None)
-        if cbc is not None:
-            in_region[cbc != 0] = 0.5
-
-        # Get labels
-        labels = variable.labels
-
-        in_region = xr.DataArray(
-            in_region.reindex(labels.coords["name"].values).to_numpy(),
-            coords={"name": labels.coords["name"]},
-            dims=["name"],
-        )
-        in_region, labels = xr.broadcast(in_region, labels)
-
-        flat_labels = labels.values.flatten()
-        mask = flat_labels != -1
-        in_region_by_label.append(
-            pd.Series(in_region.values.ravel()[mask], index=flat_labels[mask])
-        )
-
-    return pd.concat(in_region_by_label)
-
-
 def split_expression_by_region(
-    n: pypsa.Network, expr: LinearExpression, region: list[str]
+    expr: LinearExpression, region: list[str]
 ) -> tuple[LinearExpression, LinearExpression]:
-    # Convert expression
-    expr_df = expr.flat
+    """
+    Split an expression grouped by country into its in- and out-of-region part.
 
-    # Get variables mapping
-    in_region = get_variable_region_mapping(n, region)
+    Uses the same country assignment as `split_df_by_region` does for the
+    corresponding `n.statistics` values.
 
-    # Check if all variables are in mapping
-    not_mapped = ~expr_df["vars"].isin(in_region.index)
-    if not_mapped.any():
-        raise ValueError("Some term(s) of the expression are not in regional mapping.")
+    Parameters
+    ----------
+    expr : LinearExpression
+        Expression with a ("component", "country") group index, as returned by
+        the `n.optimize.expressions` accessor with `groupby="country"`
+    region : list[str]
+        Countries being part of region
 
-    # Build expressions
-    variables = expr_df["vars"].to_numpy()
-    coefficients = expr_df["coeffs"].to_numpy()
-    region_share = expr_df["vars"].map(in_region).fillna(0.0).to_numpy()
-
-    def build_expr(coeffs: np.ndarray) -> LinearExpression:
-        keep = coeffs != 0
-        data = xr.Dataset(
-            {
-                "coeffs": ("_term", coeffs[keep]),
-                "vars": ("_term", variables[keep]),
-            }
-        )
-        return LinearExpression(data, n.model)
-
-    return build_expr(coefficients * region_share), build_expr(
-        coefficients * (1 - region_share)
-    )
+    Returns
+    -------
+    tuple[LinearExpression, LinearExpression]
+        Expression inside, expression outside of region
+    """
+    groups = expr.indexes["group"]
+    in_region = groups.get_level_values("country").isin(region)
+    return expr.sel(group=groups[in_region]).sum(), expr.sel(
+        group=groups[~in_region]
+    ).sum()
 
 
 def split_df_by_region(

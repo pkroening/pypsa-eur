@@ -5,8 +5,9 @@ import logging
 
 import pandas as pd
 import pypsa
-from linopy import merge
+from linopy import LinearExpression, merge
 from pypsa.descriptors import nominal_attrs
+from pypsa.statistics import groupers
 
 from scripts.prepare_mga_regional import (
     get_cross_border_components,
@@ -49,29 +50,125 @@ def parse_optimization_sense(
     return sense
 
 
-def set_mga_objective(
+def build_cost_expression(
     n: pypsa.Network,
-    mga_config: dict,
-    alternative_objective: str,
-):
+    cost_type: str,
+) -> LinearExpression:
     """
-    Set the new objective function for modelling to generate alternatives.
+    Build the capital or operational expenditures of the network as a linear expression.
+
+    The counterpart of `n.statistics.capex`/`n.statistics.opex`, grouped by country in
+    the same way. Capex of non-extendable components only enters as a constant term and
+    is dropped, see `non_extendable_capex`.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    cost_type : str
+        Either "capex" or "opex"
+
+    Returns
+    -------
+    LinearExpression
+        Expenditures grouped by component and country
+    """
+    return getattr(n.optimize.expressions, cost_type)(groupby="country").reset_const()
+
+
+def non_extendable_capex(n: pypsa.Network) -> pd.Series:
+    """
+    Calculate the capital expenditures of non-extendable components, grouped by country.
+
+    This is the share of `n.statistics.capex` that is constant during optimization and
+    therefore not part of `build_cost_expression`.
 
     Parameters
     ----------
     n : pypsa.Network
         Network to be optimized
 
+    Returns
+    -------
+    pd.Series
+        Capital expenditures per country
+    """
+    capex = []
+    for component, attr in nominal_attrs.items():
+        static = n.components[component].static
+        if static.empty:
+            continue
+        fixed = static[~static[f"{attr}_extendable"]]
+        port = "" if "bus" in static.columns else "0"
+        country = groupers.country(n, component, port=port)[fixed.index]
+        capex.append((fixed[attr] * fixed["capital_cost"]).groupby(country).sum())
+
+    return pd.concat(capex)
+
+
+def build_cost_objective(
+    n: pypsa.Network,
+    mga_config: dict,
+    cost_type: str,
+    sense: int,
+) -> LinearExpression:
+    """
+    Build an objective function for capital or operational expenditures.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
     mga_config : dict
         Configuration for mga study
-    sense : str | int
+    cost_type : str
+        Either "capex" or "opex"
+    sense : int
         Optimization sense of alternate objective function
+
+    Returns
+    -------
+    LinearExpression
+        Alternate objective function
+    """
+    expr = build_cost_expression(n, cost_type)
+
+    region = mga_config.get("region", None)
+    if region:
+        new_obj, _ = split_expression_by_region(expr, region)
+    else:
+        new_obj = expr.sum()
+
+    return new_obj * sense
+
+
+def build_weighted_objective(
+    n: pypsa.Network,
+    mga_config: dict,
+    alternative_objective: str,
+    sense: int,
+) -> LinearExpression:
+    """
+    Build an objective function from the carrier weights given in the mga config.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    mga_config : dict
+        Configuration for mga study
+    alternative_objective : str
+        Name of the alternate objective function
+    sense : int
+        Optimization sense of alternate objective function
+
+    Returns
+    -------
+    LinearExpression
+        Alternate objective function
     """
     # Get linopy model
     m = n.model
-
-    # Parse sense
-    sense = parse_optimization_sense(alternative_objective)
 
     # Build objective function
     expr_config = mga_config["alternative_objectives"][alternative_objective]
@@ -88,60 +185,45 @@ def set_mga_objective(
     else:
         cross_border_components = False
 
-    static = expr_config["weights"].get("static", {})
-    for component in static:
-        vars = {}
-        for var in static[component]:
-            w = pd.Series(0, index=n.components[component].static.index)
-            for carrier, const in static[component][var].items():
-                mask = (
-                    n.components[component].static.carrier == carrier
-                ) & n.components[component].static.p_nom_extendable
-                w.loc[mask] = const
-            vars[var] = w
-        weights[component] = vars
-    varying = expr_config["weights"].get("varying", {})
-    for component in varying:
+    static_weights = expr_config["weights"].get("static", {})
+    for component, attrs in static_weights.items():
         static = n.components[component].static
         vars = {}
-        for var in varying[component]:
-            w = pd.DataFrame(0, columns=static.index, index=n.snapshots)
+        for var, carriers in attrs.items():
+            w = pd.Series(0.0, index=static.index)
+            for carrier, const in carriers.items():
+                w[(static["carrier"] == carrier) & static["p_nom_extendable"]] = const
+            vars[var] = w
+        weights[component] = vars
 
+    varying_weights = expr_config["weights"].get("varying", {})
+    for component, attrs in varying_weights.items():
+        static = n.components[component].static
+        vars = {}
+        for var, carriers in attrs.items():
             if cross_border_components:
-                sign = cross_border_components[component]
-                carriers = varying[component][var]
+                w = cross_border_components[component].astype(float)
                 if carriers:
-                    carrier_weights = pd.Series(0, index=static.index)
+                    carrier_weights = pd.Series(0.0, index=static.index)
                     for carrier, const in carriers.items():
                         carrier_weights[static["carrier"] == carrier] = const
-                    sign = sign * carrier_weights
-                w = w.add(sign, axis=1)
+                    w = w * carrier_weights
             else:
-                for carrier, const in varying[component][var].items():
-                    mask = (
-                        static["carrier"] == carrier
-                    )  # TODO: add regional for "tech"? -> probably does weird operation then
-                    w.loc[:, mask] = const
-
-            w = w.multiply(n.snapshot_weightings.objective, axis=0)
+                w = pd.Series(0.0, index=static.index)
+                for carrier, const in carriers.items():
+                    # TODO: add regional for "tech"? -> probably does weird operation then
+                    w[static["carrier"] == carrier] = const
             vars[var] = w
         weights[component] = vars
 
     new_expr = []
     for component, attrs in weights.items():
         for attr, coeffs in attrs.items():
-            if isinstance(coeffs, dict):
-                coeffs = pd.Series(coeffs)
-            if attr == nominal_attrs[component] and isinstance(coeffs, pd.Series):
-                coeffs = coeffs.reindex(n.get_extendable_i(component))
-                coeffs.index.name = ""
-            elif isinstance(coeffs, pd.Series):
-                coeffs = coeffs.reindex(index=n.components[component].static.index)
-            elif isinstance(coeffs, pd.DataFrame):
-                coeffs = coeffs.reindex(
-                    columns=n.components[component].static.index, index=n.snapshots
-                )
-            new_expr.append(m[f"{component}-{attr}"] * coeffs * sense)
+            variable = m[f"{component}-{attr}"]
+            expr = variable * coeffs.reindex(variable.indexes["name"], fill_value=0)
+            if "snapshot" in variable.dims:
+                expr = expr * n.snapshot_weightings.objective
+            new_expr.append(expr * sense)
 
     if "import" in alternative_objective:
         flows = merge(new_expr)
@@ -163,7 +245,38 @@ def set_mga_objective(
     else:
         new_obj = merge(new_expr)
 
-    m.objective = new_obj
+    return new_obj
+
+
+def set_mga_objective(
+    n: pypsa.Network,
+    mga_config: dict,
+    alternative_objective: str,
+):
+    """
+    Set the new objective function for modelling to generate alternatives.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+
+    mga_config : dict
+        Configuration for mga study
+    alternative_objective : str
+        Name of the alternate objective function
+    """
+    # Parse sense and objective
+    sense = parse_optimization_sense(alternative_objective)
+    cost_type = alternative_objective.split(sep="-", maxsplit=1)[-1]
+
+    # Build objective function
+    if cost_type in ("capex", "opex"):
+        new_obj = build_cost_objective(n, mga_config, cost_type, sense)
+    else:
+        new_obj = build_weighted_objective(n, mga_config, alternative_objective, sense)
+
+    n.model.objective = new_obj
 
     # Save meta data
     n.meta["sense"] = sense
@@ -215,12 +328,10 @@ def set_mga_constraint(
     """
     Set constraint for former objective
     """
-    # Get linopy model and former objective function
+    # Get linopy model
     m = n.model
-    obj_func = m.objective.expression
-    obj_func_has_constant = obj_func.has_constant
 
-    # Slack and bound
+    # Slack
     slack = float(snakemake.wildcards.slack)
     if snakemake.params.foresight == "myopic":
         current_horizon = int(snakemake.wildcards.planning_horizons)
@@ -230,62 +341,51 @@ def set_mga_constraint(
             slack, slack_initial_fraction, current_horizon, planning_horizons
         )
 
-    def calc_bound(
-        capex: pd.DataFrame, capex_installed: pd.DataFrame, opex: pd.DataFrame
-    ):
-        obj_opt = capex.sum() + opex.sum()
-        slack_abs = obj_opt * slack
-        obj_bound = obj_opt + slack_abs
-        if not obj_func_has_constant:
-            # since there are no constant terms in the original objective function
-            obj_bound = obj_bound - capex_installed.sum()
-        return obj_bound
+    def calc_bound(capex: pd.Series, opex: pd.Series, capex_const: pd.Series) -> float:
+        # The expressions cover extendable capacities only, so the constant capex of the
+        # non-extendable components is subtracted from the bound instead
+        return (1 + slack) * (capex.sum() + opex.sum()) - capex_const.sum()
 
     # Get cost-optimal network and values
     n_opt = pypsa.Network(snakemake.input.network_opt)
     capex = n_opt.statistics.capex(groupby="country", groupby_method="sum")
-    capex_installed = n_opt.statistics.installed_capex(
-        groupby="country", groupby_method="sum"
-    )
     opex = n_opt.statistics.opex(groupby="country", groupby_method="sum")
     del n_opt
+
+    # Costs of the network to be optimized, grouped like the statistics above
+    capex_expr = build_cost_expression(n, "capex")
+    opex_expr = build_cost_expression(n, "opex")
+    capex_const = non_extendable_capex(n)
 
     # Check whether to split by region
     region = snakemake.params.mga.get("region", None)
     if region:
         capex_in, capex_out = split_df_by_region(capex, region)
-        capex_installed_in, capex_installed_out = split_df_by_region(
-            capex_installed, region
-        )
         opex_in, opex_out = split_df_by_region(opex, region)
+        capex_const_in, capex_const_out = split_df_by_region(capex_const, region)
+        capex_expr_in, capex_expr_out = split_expression_by_region(capex_expr, region)
+        opex_expr_in, opex_expr_out = split_expression_by_region(opex_expr, region)
 
-        obj_bound_in_region = calc_bound(capex_in, capex_installed_in, opex_in)
-        obj_bound_out_region = calc_bound(capex_out, capex_installed_out, opex_out)
-
-        n.meta["obj_bound"] = (obj_bound_in_region, obj_bound_out_region)  # meta data
-
-        obj_func_in, obj_func_out = split_expression_by_region(n, obj_func, region)
-
-        for c_name, expr, bound in [
-            ("near_opt_bound_in_region", obj_func_in, obj_bound_in_region),
-            ("near_opt_bound_out_region", obj_func_out, obj_bound_out_region),
-        ]:
-            if c_name not in n.global_constraints.index:
-                n.add(
-                    "GlobalConstraint",
-                    name=c_name,
-                    type=c_name,
-                    sense="<=",
-                    constant=bound,
-                )
-            m.add_constraints(expr <= bound, name=f"GlobalConstraint-{c_name}")
-
+        constraints = {
+            "near_opt_bound_in_region": (
+                capex_expr_in + opex_expr_in,
+                calc_bound(capex_in, opex_in, capex_const_in),
+            ),
+            "near_opt_bound_out_region": (
+                capex_expr_out + opex_expr_out,
+                calc_bound(capex_out, opex_out, capex_const_out),
+            ),
+        }
     else:
-        obj_bound = calc_bound(capex, capex_installed, opex)
-        n.meta["obj_bound"] = obj_bound  # meta data
+        constraints = {
+            "near_opt_bound": (
+                capex_expr.sum() + opex_expr.sum(),
+                calc_bound(capex, opex, capex_const),
+            )
+        }
 
+    for c_name, (expr, obj_bound) in constraints.items():
         # Add globalconstraint object so dual variable can be registered (if it doesn't already exist)
-        c_name = "near_opt_bound"
         if c_name not in n.global_constraints.index:
             n.add(
                 "GlobalConstraint",
@@ -294,10 +394,11 @@ def set_mga_constraint(
                 sense="<=",
                 constant=obj_bound,
             )
-        m.add_constraints(
-            obj_func <= obj_bound,
-            name=f"GlobalConstraint-{c_name}",
-        )
+        m.add_constraints(expr <= obj_bound, name=f"GlobalConstraint-{c_name}")
+
+    # Save meta data
+    obj_bounds = [bound for _, bound in constraints.values()]
+    n.meta["obj_bound"] = tuple(obj_bounds) if region else obj_bounds[0]
 
 
 def prepare_mga(
