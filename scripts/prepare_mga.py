@@ -109,12 +109,18 @@ def set_mga_objective(
 
             if cross_border_components:
                 sign = cross_border_components[component]
+                carriers = varying[component][var]
+                if carriers:
+                    carrier_weights = pd.Series(0, index=static.index)
+                    for carrier, const in carriers.items():
+                        carrier_weights[static["carrier"] == carrier] = const
+                    sign = sign * carrier_weights
                 w = w.add(sign, axis=1)
             else:
                 for carrier, const in varying[component][var].items():
                     mask = (
                         static["carrier"] == carrier
-                    )  # TODO: add regional for "tech"?
+                    )  # TODO: add regional for "tech"? -> probably does weird operation then
                     w.loc[:, mask] = const
 
             w = w.multiply(n.snapshot_weightings.objective, axis=0)
