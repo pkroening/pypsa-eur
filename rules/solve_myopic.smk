@@ -146,6 +146,9 @@ rule solve_sector_network_myopic:
         co2_sequestration_potential=config_provider(
             "sector", "co2_sequestration_potential", default=200
         ),
+        regionalise_eu_buses=config_provider(
+            "scenario", "mga", "regionalise_eu_buses", default=[]
+        ),
         custom_extra_functionality=input_custom_extra_functionality,
     message:
         "Solving sector-coupled network with myopic foresight for {wildcards.clusters} clusters, {wildcards.planning_horizons} planning horizons, {wildcards.opts} electric options and {wildcards.sector_opts} sector options"
@@ -198,6 +201,9 @@ rule solve_sector_network_myopic_mga:
         planning_horizons=config_provider("scenario", "planning_horizons"),
         co2_sequestration_potential=config_provider(
             "sector", "co2_sequestration_potential", default=200
+        ),
+        regionalise_eu_buses=config_provider(
+            "scenario", "mga", "regionalise_eu_buses", default=[]
         ),
         custom_extra_functionality=scripts("prepare_mga.py"),
     message:

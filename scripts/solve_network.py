@@ -51,7 +51,7 @@ from scripts._helpers import (
     set_scenario_config,
     update_config_from_wildcards,
 )
-from scripts.prepare_mga_regional import prepare_mga_regional
+from scripts.prepare_mga_regional import prepare_mga_regional, regionalise_eu_buses
 
 logger = logging.getLogger(__name__)
 
@@ -583,6 +583,10 @@ def prepare_network(
         n.storage_units.state_of_charge_initial = 0
         n.stores.e_cyclic = False
         n.stores.e_initial = 0
+
+    # Applied to every solve, not just mga, so all networks share one structure
+    if snakemake.params.get("regionalise_eu_buses", None):
+        regionalise_eu_buses(n, snakemake.params.regionalise_eu_buses)
 
     if snakemake.params.get("mga", {}).get("region", None):
         prepare_mga_regional(n, snakemake)

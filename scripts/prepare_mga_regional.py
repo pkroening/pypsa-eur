@@ -1,9 +1,18 @@
 # SPDX-FileCopyrightText: Peter Kröning and Contributors to <https://github.com/koen-vg/eu-hydrogen>
 #
 # SPDX-License-Identifier: MIT
+import logging
+
+import numpy as np
 import pandas as pd
 import pypsa
 from linopy import LinearExpression
+
+logger = logging.getLogger(__name__)
+
+# Headroom of the interface links, far above any national commodity flow but
+# small enough to keep the constraint matrix well scaled
+INTERFACE_P_NOM = 1e7
 
 
 # Regional utils
@@ -170,6 +179,106 @@ def country_grouper(
         )
 
     return country.rename("country")
+
+
+def regionalise_eu_buses(
+    n: pypsa.Network,
+    carriers: list[str],
+) -> None:
+    """
+    Route flows between EU-wide commodity buses and national assets over one bus per country.
+
+    PyPSA-Eur pools commodities like oil or coal on a single EU bus that every
+    consumer draws from directly, so each consumer link is its own border crossing
+    and its flow is measured in whatever sits at bus0. Inserting a national bus per
+    commodity and country leaves exactly one crossing per commodity, carrying the
+    commodity itself in both directions.
+
+    Supply (generators and stores) stays on the EU bus, so the commodity remains a
+    European pool. The interface links are free and bidirectional, which makes this
+    a pure reformulation: the EU-wide balance decomposes into the national balances
+    plus the interface flows, leaving the cost optimum unchanged.
+
+    Idempotent, so it can run again on a network that carries the national buses
+    over from a previous planning horizon.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized, modified in place
+    carriers : list[str]
+        Carriers of the EU-wide commodity buses to route nationally
+    """
+    eu_buses = n.buses[
+        (n.buses["location"] == "EU") & n.buses["carrier"].isin(carriers)
+    ]
+    missing = set(carriers) - set(eu_buses["carrier"])
+    if missing:
+        logger.warning(f"No EU-wide bus for carrier(s) {sorted(missing)}, skipping.")
+
+    bus_cols = [col for col in n.links.columns if col.startswith("bus")]
+
+    for eu_bus, bus in eu_buses.iterrows():
+        interface = f"{bus.carrier} interface"
+        if interface not in n.carriers.index:
+            n.add("Carrier", interface, nice_name=interface)
+
+        # A previous horizon carries its links over already routed, but not the
+        # buses they point at. Send those back to the EU bus and re-route below.
+        national = {
+            f"{country} {bus.carrier}"
+            for country in n.buses["country"].unique()
+            if country
+        }
+        for col in bus_cols:
+            carried_over = n.links[col].isin(national) & ~n.links[col].isin(
+                n.buses.index
+            )
+            n.links.loc[carried_over, col] = eu_bus
+
+        # Links on the EU bus, excluding the interfaces of an earlier call
+        on_eu_bus = n.links[bus_cols].isin([eu_bus]).any(axis="columns")
+        connected = n.links.index[on_eu_bus & (n.links["carrier"] != interface)]
+        country = country_grouper(n, "Link")[connected]
+
+        # Links without any national port stay on the EU bus, they are pooled supply
+        for name in country[country != ""].unique():
+            national_bus = f"{name} {bus.carrier}"
+            if national_bus not in n.buses.index:
+                n.add(
+                    "Bus",
+                    national_bus,
+                    carrier=bus.carrier,
+                    unit=bus.unit,
+                    country=name,
+                    location=name,
+                    x=bus.x,
+                    y=bus.y,
+                )
+
+            link = f"{national_bus} interface"
+            if link not in n.links.index:
+                n.add(
+                    "Link",
+                    link,
+                    bus0=eu_bus,
+                    bus1=national_bus,
+                    carrier=interface,
+                    p_nom=INTERFACE_P_NOM,
+                    p_min_pu=-1,
+                    lifetime=np.inf,
+                )
+
+            # Move the national side of every connected link onto the national bus
+            move = country.index[country == name]
+            for col in bus_cols:
+                on_bus = n.links.loc[move, col] == eu_bus
+                n.links.loc[move[on_bus], col] = national_bus
+
+        logger.info(
+            f"Routed {len(country[country != ''])} link(s) on {eu_bus} "
+            f"over {country[country != ''].nunique()} national bus(es)."
+        )
 
 
 def split_df_by_region(

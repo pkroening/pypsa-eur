@@ -34,6 +34,17 @@ scenario:
     - 0.10
     slack_initial_fraction: 0.5
 
+    # Route these EU-wide commodity pools over one bus per country, so that a
+    # commodity crosses the region border on a single interface link instead of
+    # on every consumer link. Free and bidirectional, the cost optimum is unchanged.
+    regionalise_eu_buses:
+    - oil
+    - coal
+    - lignite
+    - methanol
+    - NH3
+    - uranium
+
     alternative_objectives:
 
       # Self-sufficiency
@@ -57,26 +68,18 @@ scenario:
               s:
                 AC: 1
 
-      # Fossil imports as primary energy. Link p is the flow at bus0, so the
-      # carriers listed are every link drawing a fossil commodity across the
-      # region border, not just the ones converting it to electricity.
+      # Fossil imports as primary energy. One interface link per commodity, each
+      # carrying that commodity in both directions, so domestic production nets
+      # against the draw. Gas is already nodal and crosses on its pipeline.
       min-imports_fossil:
         weights:
           varying:
             Link:
               p:
-              #  nuclear: 1  # no cross-border uranium link for DE
-                coal: 1
-                "coal for industry": 1
-                lignite: 1
-                oil: 1
-                "land transport oil": 1
-                "naphtha for industry": 1
-                "kerosene for aviation": 1
-                "shipping oil": 1
-                "agriculture machinery oil": 1
-                "rural oil boiler": 1
-                "urban decentral oil boiler": 1
+              #  "uranium interface": 1
+                "oil interface": 1
+                "coal interface": 1
+                "lignite interface": 1
                 "gas pipeline": 1
 
       # Same carriers as electricity equivalents. Weights are the efficiency of
@@ -88,33 +91,22 @@ scenario:
           varying:
             Link:
               p:
-                coal: 0.356
-                "coal for industry": 0.356
-                lignite: 0.330
-                oil: 0.350
-                "land transport oil": 0.350
-                "naphtha for industry": 0.350
-                "kerosene for aviation": 0.350
-                "shipping oil": 0.350
-                "agriculture machinery oil": 0.350
-                "rural oil boiler": 0.350
-                "urban decentral oil boiler": 0.350
+                "oil interface": 0.350
+                "coal interface": 0.356
+                "lignite interface": 0.330
                 "gas pipeline": 0.570
 
-      # Synthetic fuel imports as primary energy. H2 trade nets out on its own,
-      # the pipeline carries both directions. Links delivering into an EU pool
-      # from a domestic input (Haber-Bosch, methanolisation) are not listed, so
-      # this is a gross measure like min-imports_fossil.
+      # Synthetic fuel imports as primary energy. H2 is already nodal and crosses
+      # on its pipeline. Ammonia and methanol produced domestically leave over the
+      # same interface link, so Haber-Bosch and methanolisation net correctly.
       min-imports_synfuel:
         weights:
           varying:
             Link:
               p:
                 "H2 pipeline": 1
-                "ammonia cracker": 1
-                "industry methanol": 1
-                "shipping methanol": 1  # only exists from 2030 on
-                "OCGT methanol": 1
+                "NH3 interface": 1
+                "methanol interface": 1
 
       # Same carriers as electricity equivalents. H2 0.500 via fuel cell,
       # methanol 0.405 via OCGT methanol; ammonia has no direct link into an AC
@@ -125,10 +117,8 @@ scenario:
             Link:
               p:
                 "H2 pipeline": 0.500
-                "ammonia cracker": 0.342
-                "industry methanol": 0.405
-                "shipping methanol": 0.405
-                "OCGT methanol": 0.405
+                "NH3 interface": 0.342
+                "methanol interface": 0.405
 
 
       # Costs
