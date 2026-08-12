@@ -34,9 +34,11 @@ scenario:
     - 0.10
     slack_initial_fraction: 0.5
 
-    # Route these EU-wide commodity pools over one bus per country, so that a
-    # commodity crosses the region border on a single interface link instead of
-    # on every consumer link. Free and bidirectional, the cost optimum is unchanged.
+    # Regional settings
+    region:
+    - DE
+
+    # Reroute EU-wide commodity pools over one bus per country
     regionalise_eu_buses:
     - oil
     - coal
@@ -45,6 +47,7 @@ scenario:
     - NH3
     - uranium
 
+    # Objective functions
     alternative_objectives:
 
       # Self-sufficiency
@@ -141,6 +144,3 @@ scenario:
             Link:
               p:
                 "H2 Electrolysis": 1
-
-    region:
-    - DE
