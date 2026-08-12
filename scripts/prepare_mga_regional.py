@@ -8,6 +8,8 @@ import pandas as pd
 import pypsa
 from linopy import LinearExpression
 
+from scripts._helpers import sanitize_custom_columns
+
 logger = logging.getLogger(__name__)
 
 # Headroom of the interface links, far above any national commodity flow but
@@ -279,6 +281,10 @@ def regionalise_eu_buses(
             f"Routed {len(country[country != ''])} link(s) on {eu_bus} "
             f"over {country[country != ''].nunique()} national bus(es)."
         )
+
+    # The interface links leave pypsa-eur's own link columns unset, and `reversed`
+    # is used as a boolean mask in add_lossy_bidirectional_link_constraints
+    sanitize_custom_columns(n)
 
 
 def split_df_by_region(
