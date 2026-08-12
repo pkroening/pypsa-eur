@@ -99,7 +99,7 @@ wildcard_constraints:
     opts=r"[-+a-zA-Z0-9\.]*",
     sector_opts=r"[-+a-zA-Z0-9\.\s]*",
     planning_horizons=r"[0-9]{4}",
-    mga=r"(_(min|max)-.{4,14}_[0-9\.]+)?",
+    mga=r"(_(min|max)-.{4,32}_[0-9\.]+)?",
 
 
 include: "rules/common.smk"

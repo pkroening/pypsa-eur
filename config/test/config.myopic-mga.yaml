@@ -57,17 +57,78 @@ scenario:
               s:
                 AC: 1
 
+      # Fossil imports as primary energy. Link p is the flow at bus0, so the
+      # carriers listed are every link drawing a fossil commodity across the
+      # region border, not just the ones converting it to electricity.
       min-imports_fossil:
         weights:
           varying:
             Link:
               p:
-              #  nuclear: 1
-                oil: 1
-                OCGT: 1
-                CCGT: 1
+              #  nuclear: 1  # no cross-border uranium link for DE
                 coal: 1
+                "coal for industry": 1
                 lignite: 1
+                oil: 1
+                "land transport oil": 1
+                "naphtha for industry": 1
+                "kerosene for aviation": 1
+                "shipping oil": 1
+                "agriculture machinery oil": 1
+                "rural oil boiler": 1
+                "urban decentral oil boiler": 1
+                "gas pipeline": 1
+
+      # Same carriers as electricity equivalents. Weights are the efficiency of
+      # each fuel's link into an AC bus (coal 0.356, lignite 0.330, oil 0.350,
+      # gas 0.570 via CCGT), taken as a fixed reference: they drift by 1-3 % over
+      # the horizons and coal has no link into AC left in 2035.
+      min-imports_fossil_el:
+        weights:
+          varying:
+            Link:
+              p:
+                coal: 0.356
+                "coal for industry": 0.356
+                lignite: 0.330
+                oil: 0.350
+                "land transport oil": 0.350
+                "naphtha for industry": 0.350
+                "kerosene for aviation": 0.350
+                "shipping oil": 0.350
+                "agriculture machinery oil": 0.350
+                "rural oil boiler": 0.350
+                "urban decentral oil boiler": 0.350
+                "gas pipeline": 0.570
+
+      # Synthetic fuel imports as primary energy. H2 trade nets out on its own,
+      # the pipeline carries both directions. Links delivering into an EU pool
+      # from a domestic input (Haber-Bosch, methanolisation) are not listed, so
+      # this is a gross measure like min-imports_fossil.
+      min-imports_synfuel:
+        weights:
+          varying:
+            Link:
+              p:
+                "H2 pipeline": 1
+                "ammonia cracker": 1
+                "industry methanol": 1
+                "shipping methanol": 1  # only exists from 2030 on
+                "OCGT methanol": 1
+
+      # Same carriers as electricity equivalents. H2 0.500 via fuel cell,
+      # methanol 0.405 via OCGT methanol; ammonia has no direct link into an AC
+      # bus, so it goes through the cracker first: 0.6849 * 0.500.
+      min-imports_synfuel_el:
+        weights:
+          varying:
+            Link:
+              p:
+                "H2 pipeline": 0.500
+                "ammonia cracker": 0.342
+                "industry methanol": 0.405
+                "shipping methanol": 0.405
+                "OCGT methanol": 0.405
 
 
       # Costs
