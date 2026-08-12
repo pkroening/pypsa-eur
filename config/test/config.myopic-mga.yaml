@@ -33,7 +33,42 @@ scenario:
     - 0.05
     - 0.10
     slack_initial_fraction: 0.5
+
     alternative_objectives:
+
+      # Self-sufficiency
+      min-imports:
+        weights:
+          varying:
+            Link:
+              p:
+                # 
+            Line:
+              s:
+                # ignored
+
+      min-imports-elec:
+        weights:
+          varying:
+            Link:
+              p:
+                AC: 1
+            Line:
+              s:
+                AC: 1
+
+      min-imports-fossil:
+        weights:
+          varying:
+            Link:
+              p:
+              #  nuclear: 1
+                oil: 1
+                OCGT: 1
+                CCGT: 1
+                coal: 1
+                lignite: 1
+
       # Technology focus
       min-tech_H2_El:
         weights:
@@ -48,17 +83,5 @@ scenario:
               p:
                 "H2 Electrolysis": 1
 
-      # Autarky
-      min-imports_elec:
-        weights:
-          varying:
-            Link:
-              p:
-                # ignored
-            Line:
-              # In PyPSA optimization problems, AC is linearised in a way,
-              # that s represents the active power, not the apparent power.
-              s:
-                # ignored
     region:
     - DE
