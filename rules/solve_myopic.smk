@@ -65,7 +65,7 @@ rule add_brownfield:
         network=resources(
             "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}.nc"
         ),
-        network_p=solved_previous_horizon_myopic_mga,  #solved network at previous time step
+        network_p=solved_previous_horizon,  #solved network at previous time step
     output:
         resources(
             "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}_brownfield.nc"
