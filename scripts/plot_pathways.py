@@ -171,6 +171,7 @@ def _plot_pathways(
         ["planning_horizon", "alternative_objectives", "slack"]
     ).unique()
     horizons = list(columns.get_level_values("planning_horizon").unique())
+    x = [int(h) for h in horizons]
     objectives = [
         o for o in columns.get_level_values("alternative_objectives").unique() if o
     ]
@@ -203,7 +204,7 @@ def _plot_pathways(
 
             for i, row in enumerate(totals.index):
                 _plot_technology(
-                    horizons,
+                    x,
                     None if y_default is None else y_default[i],
                     {key: y[i] for key, y in y_mga.items()},
                     objectives,
@@ -227,7 +228,7 @@ def _plot_pathways(
             )
             for (scenario, slack_label), frame in stacks.items():
                 _plot_stacked(
-                    horizons,
+                    x,
                     frame,
                     stack_labels,
                     stack_colors,
