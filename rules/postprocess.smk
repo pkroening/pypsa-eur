@@ -411,166 +411,91 @@ rule make_global_summary:
         scripts("make_global_summary.py")
 
 
-if "mga" in config["scenario"]:
-
-    rule plot_summary_mga:
-        input:
-            costs=RESULTS + "csvs_mga/costs.csv",
-            energy=RESULTS + "csvs_mga/energy.csv",
-            balances=RESULTS + "csvs_mga/energy_balance.csv",
-            eurostat=resources("eurostat_energy_balances.csv"),
-            co2=rules.retrieve_ghg_emissions.output["csv"],
-        output:
-            costs=RESULTS + "graphs_mga/costs.pdf",
-            energy=RESULTS + "graphs_mga/energy.pdf",
-            balances=RESULTS + "graphs_mga/balances-energy.pdf",
-        log:
-            RESULTS + "logs/plot_summary_mga.log",
-        localrule: True
-        threads: 2
-        resources:
-            mem_mb=10000,
-        params:
-            countries=config_provider("countries"),
-            planning_horizons=config_provider("scenario", "planning_horizons"),
-            emissions_scope=config_provider("energy", "emissions"),
-            plotting=config_provider("plotting"),
-            foresight=config_provider("foresight"),
-            co2_budget=config_provider("co2_budget"),
-            sector=config_provider("sector"),
-            n_header=6,
-            RDIR=RDIR,
-        script:
-            scripts("plot_summary.py")
-
-    rule make_summary_mga:
-        input:
-            networks=expand(
-                RESULTS
-                + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}.nc",
-                **config["scenario"],
-                **config["scenario"]["mga"],
-                allow_missing=True,
-            ),
-            costs=lambda w: (
-                resources(
-                    "costs_{}_processed.csv".format(
-                        config_provider("costs", "year")(w)
-                    )
+rule make_summary_mga:
+    input:
+        networks=expand(
+            RESULTS
+            + "networks/base_s_{clusters}_{opts}_{sector_opts}_{planning_horizons}_{alternative_objectives}_{slack}.nc",
+            **config["scenario"],
+            **config["scenario"]["mga"],
+            allow_missing=True,
+        ),
+        costs=lambda w: (
+            resources(
+                "costs_{}_processed.csv".format(config_provider("costs", "year")(w))
+            )
+            if config_provider("foresight")(w) == "overnight"
+            else resources(
+                "costs_{}_processed.csv".format(
+                    config_provider("scenario", "planning_horizons", 0)(w)
                 )
-                if config_provider("foresight")(w) == "overnight"
-                else resources(
-                    "costs_{}_processed.csv".format(
-                        config_provider("scenario", "planning_horizons", 0)(w)
-                    )
-                )
-            ),
-            ac_plot=expand(
-                resources("maps/power-network-s-{clusters}.pdf"),
-                **config["scenario"],
-                allow_missing=True,
-            ),
-            costs_plot=expand(
+            )
+        ),
+        ac_plot=expand(
+            resources("maps/power-network-s-{clusters}.pdf"),
+            **config["scenario"],
+            allow_missing=True,
+        ),
+        costs_plot=expand(
+            RESULTS
+            + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}_{alternative_objectives}_{slack}.pdf",
+            **config["scenario"],
+            **config["scenario"]["mga"],
+            allow_missing=True,
+        ),
+        h2_plot=lambda w: expand(
+            (
                 RESULTS
-                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-costs-all_{planning_horizons}_{alternative_objectives}_{slack}.pdf",
-                **config["scenario"],
-                **config["scenario"]["mga"],
-                allow_missing=True,
+                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}_{alternative_objectives}_{slack}.pdf"
+                if config_provider("sector", "H2_network")(w)
+                else []
             ),
-            h2_plot=lambda w: expand(
-                (
-                    RESULTS
-                    + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-h2_network_{planning_horizons}_{alternative_objectives}_{slack}.pdf"
-                    if config_provider("sector", "H2_network")(w)
-                    else []
-                ),
-                **config["scenario"],
-                **config["scenario"]["mga"],
-                allow_missing=True,
+            **config["scenario"],
+            **config["scenario"]["mga"],
+            allow_missing=True,
+        ),
+        ch4_plot=lambda w: expand(
+            (
+                RESULTS
+                + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}_{alternative_objectives}_{slack}.pdf"
+                if config_provider("sector", "gas_network")(w)
+                else []
             ),
-            ch4_plot=lambda w: expand(
-                (
-                    RESULTS
-                    + "maps/static/base_s_{clusters}_{opts}_{sector_opts}-ch4_network_{planning_horizons}_{alternative_objectives}_{slack}.pdf"
-                    if config_provider("sector", "gas_network")(w)
-                    else []
-                ),
-                **config["scenario"],
-                **config["scenario"]["mga"],
-                allow_missing=True,
-            ),
-        output:
-            nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
-            nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
-            nodal_capacity_factors=RESULTS + "csvs_mga/nodal_capacity_factors.csv",
-            capacity_factors=RESULTS + "csvs_mga/capacity_factors.csv",
-            costs=RESULTS + "csvs_mga/costs.csv",
-            capacities=RESULTS + "csvs_mga/capacities.csv",
-            curtailment=RESULTS + "csvs_mga/curtailment.csv",
-            energy=RESULTS + "csvs_mga/energy.csv",
-            energy_balance=RESULTS + "csvs_mga/energy_balance.csv",
-            nodal_energy_balance=RESULTS + "csvs_mga/nodal_energy_balance.csv",
-            prices=RESULTS + "csvs_mga/prices.csv",
-            weighted_prices=RESULTS + "csvs_mga/weighted_prices.csv",
-            market_values=RESULTS + "csvs_mga/market_values.csv",
-            metrics=RESULTS + "csvs_mga/metrics.csv",
-        log:
-            logs("make_summary_mga.log"),
-        benchmark:
-            benchmarks("make_summary_mga")
-        localrule: True
-        threads: 2
-        resources:
-            mem_mb=10000,
-        params:
-            scenario=config_provider("scenario"),
-            mga=config_provider("scenario", "mga"),
-            RDIR=RDIR,
-        message:
-            "Creating global summary of near optimal optimization results"
-        script:
-            scripts("make_summary_mga.py")
-
-    rule plot_pathways:
-        input:
-            nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
-            nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
-        output:
-            pathways=directory(RESULTS + "pathways"),
-        log:
-            RESULTS + "logs/plot_pathways.log",
-        benchmark:
-            RESULTS + "benchmarks/plot_pathways"
-        localrule: True
-        threads: 1
-        resources:
-            mem_mb=4000,
-        params:
-            mga=config_provider("scenario", "mga"),
-        message:
-            "Plotting near optimal capacity and cost pathways"
-        script:
-            scripts("plot_pathways.py")
-
-    rule make_cumulative_costs_mga:
-        input:
-            costs=RESULTS + "csvs_mga/costs.csv",
-        output:
-            cumulative_costs=RESULTS + "csvs_mga/cumulative_costs.csv",
-        log:
-            RESULTS + "logs/make_cumulative_costs_mga.log",
-        benchmark:
-            RESULTS + "benchmarks/make_cumulative_costs_mga"
-        localrule: True
-        threads: 1
-        resources:
-            mem_mb=4000,
-        params:
-            scenario=config_provider("scenario"),
-        message:
-            "Calculating cumulative near optimal costs over time horizon"
-        script:
-            scripts("make_cumulative_costs_mga.py")
+            **config["scenario"],
+            **config["scenario"]["mga"],
+            allow_missing=True,
+        ),
+    output:
+        nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
+        nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
+        nodal_capacity_factors=RESULTS + "csvs_mga/nodal_capacity_factors.csv",
+        capacity_factors=RESULTS + "csvs_mga/capacity_factors.csv",
+        costs=RESULTS + "csvs_mga/costs.csv",
+        capacities=RESULTS + "csvs_mga/capacities.csv",
+        curtailment=RESULTS + "csvs_mga/curtailment.csv",
+        energy=RESULTS + "csvs_mga/energy.csv",
+        energy_balance=RESULTS + "csvs_mga/energy_balance.csv",
+        nodal_energy_balance=RESULTS + "csvs_mga/nodal_energy_balance.csv",
+        prices=RESULTS + "csvs_mga/prices.csv",
+        weighted_prices=RESULTS + "csvs_mga/weighted_prices.csv",
+        market_values=RESULTS + "csvs_mga/market_values.csv",
+        metrics=RESULTS + "csvs_mga/metrics.csv",
+    log:
+        logs("make_summary_mga.log"),
+    benchmark:
+        benchmarks("make_summary_mga")
+    localrule: True
+    threads: 2
+    resources:
+        mem_mb=10000,
+    params:
+        scenario=config_provider("scenario"),
+        mga=config_provider("scenario", "mga"),
+        RDIR=RDIR,
+    message:
+        "Creating global summary of near optimal optimization results"
+    script:
+        scripts("make_summary_mga.py")
 
 
 rule make_cumulative_costs:
@@ -591,6 +516,27 @@ rule make_cumulative_costs:
         "Calculating cumulative costs over time horizon"
     script:
         scripts("make_cumulative_costs.py")
+
+
+rule make_cumulative_costs_mga:
+    input:
+        costs=RESULTS + "csvs_mga/costs.csv",
+    output:
+        cumulative_costs=RESULTS + "csvs_mga/cumulative_costs.csv",
+    log:
+        RESULTS + "logs/make_cumulative_costs_mga.log",
+    benchmark:
+        RESULTS + "benchmarks/make_cumulative_costs_mga"
+    localrule: True
+    threads: 1
+    resources:
+        mem_mb=4000,
+    params:
+        scenario=config_provider("scenario"),
+    message:
+        "Calculating cumulative near optimal costs over time horizon"
+    script:
+        scripts("make_cumulative_costs_mga.py")
 
 
 rule plot_summary:
@@ -622,6 +568,59 @@ rule plot_summary:
         "Plotting summary statistics and results"
     script:
         scripts("plot_summary.py")
+
+
+rule plot_summary_mga:
+    input:
+        costs=RESULTS + "csvs_mga/costs.csv",
+        energy=RESULTS + "csvs_mga/energy.csv",
+        balances=RESULTS + "csvs_mga/energy_balance.csv",
+        eurostat=resources("eurostat_energy_balances.csv"),
+        co2=rules.retrieve_ghg_emissions.output["csv"],
+    output:
+        costs=RESULTS + "graphs_mga/costs.pdf",
+        energy=RESULTS + "graphs_mga/energy.pdf",
+        balances=RESULTS + "graphs_mga/balances-energy.pdf",
+    log:
+        RESULTS + "logs/plot_summary_mga.log",
+    localrule: True
+    threads: 2
+    resources:
+        mem_mb=10000,
+    params:
+        countries=config_provider("countries"),
+        planning_horizons=config_provider("scenario", "planning_horizons"),
+        emissions_scope=config_provider("energy", "emissions"),
+        plotting=config_provider("plotting"),
+        foresight=config_provider("foresight"),
+        co2_budget=config_provider("co2_budget"),
+        sector=config_provider("sector"),
+        n_header=6,
+        RDIR=RDIR,
+    script:
+        scripts("plot_summary.py")
+
+
+rule plot_pathways:
+    input:
+        nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
+        nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
+    output:
+        pathways=directory(RESULTS + "pathways"),
+    log:
+        RESULTS + "logs/plot_pathways.log",
+    benchmark:
+        RESULTS + "benchmarks/plot_pathways"
+    localrule: True
+    threads: 1
+    resources:
+        mem_mb=4000,
+    params:
+        mga=config_provider("scenario", "mga"),
+    message:
+        "Plotting near optimal capacity and cost pathways"
+    script:
+        scripts("plot_pathways.py")
 
 
 rule plot_balance_timeseries:
