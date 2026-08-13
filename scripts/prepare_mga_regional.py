@@ -149,23 +149,199 @@ def country_grouper(
     return country.rename("country")
 
 
+def national_name(name: str, country: str) -> str:
+    """
+    Name of the national copy of an EU-wide bus or asset.
+
+    Parameters
+    ----------
+    name : str
+        Name of the EU-wide component, e.g. "EU oil primary"
+    country : str
+        Country the copy belongs to
+
+    Returns
+    -------
+    str
+        Name of the copy, e.g. "DE oil primary"
+    """
+    return f"{country} {name.removeprefix('EU ')}"
+
+
+def pool_supply(
+    n: pypsa.Network,
+    eu_bus: str,
+    eu_buses: pd.Index,
+    max_depth: int = 3,
+) -> tuple[list[str], pd.Index]:
+    """
+    Find the buses and links making up the supply side of an EU-wide commodity pool.
+
+    Walks upstream from the pool bus over the links delivering into it from another
+    EU-wide bus, as `EU oil` is refined from `EU oil primary`.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    eu_bus : str
+        The EU-wide commodity bus
+    eu_buses : pd.Index
+        The EU-wide buses that may be part of a supply chain
+    max_depth : int
+        How many conversion steps to follow upstream
+
+    Returns
+    -------
+    tuple[list[str], pd.Index]
+        Buses of the pool, starting with `eu_bus`, and the links between them
+    """
+    buses = [eu_bus]
+    frontier = [eu_bus]
+    for _ in range(max_depth):
+        feeding = n.links[
+            n.links["bus1"].isin(frontier) & n.links["bus0"].isin(eu_buses)
+        ]
+        upstream = [b for b in feeding["bus0"].unique() if b not in buses]
+        if not upstream:
+            break
+        buses += upstream
+        frontier = upstream
+
+    links = n.links.index[n.links["bus0"].isin(buses) & n.links["bus1"].isin(buses)]
+
+    return buses, links
+
+
+def bus_attrs(n: pypsa.Network, bus: str) -> dict:
+    """
+    Read the attributes a national copy of a bus inherits.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    bus : str
+        Name of the bus to copy from
+
+    Returns
+    -------
+    dict
+        Carrier, unit and coordinates of the bus
+    """
+    source = n.buses.loc[bus]
+
+    return {attr: source[attr] for attr in ("carrier", "unit", "x", "y")}
+
+
+def dangling_buses(n: pypsa.Network, candidates: dict) -> list[str]:
+    """
+    Find bus names that components refer to but that do not exist in the network.
+
+    A planning horizon starts from a freshly pooled network, while the assets carried
+    over from the previous one already point at their national buses.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    candidates : dict
+        Bus names to look for
+
+    Returns
+    -------
+    list[str]
+        The referenced names that are missing
+    """
+    referenced = set()
+    for c in ("Link", "Generator", "Store", "StorageUnit"):
+        static = n.components[c].static
+        cols = [col for col in static.columns if col.startswith("bus")]
+        if static.empty or not cols:
+            continue
+        referenced |= set(pd.unique(static[cols].to_numpy().ravel()))
+
+    return sorted(referenced & set(candidates) - set(n.buses.index))
+
+
+def copy_to_country(
+    n: pypsa.Network,
+    component: str,
+    names: pd.Index,
+    country: str,
+    bus_map: dict[str, str],
+    share: float = 1.0,
+    overrides: dict | None = None,
+) -> None:
+    """
+    Copy EU-wide components to a country, pointing them at its own buses.
+
+    Components that already exist, because a previous planning horizon carried them
+    over, are left untouched.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized, modified in place
+    component : str
+        Name of the component class
+    names : pd.Index
+        Components to copy
+    country : str
+        Country to copy them to
+    bus_map : dict[str, str]
+        Where each EU-wide bus of the chain sits in that country
+    share : float
+        Fraction of already built capacity the country gets, so that capacity is
+        split rather than duplicated
+    overrides : dict | None
+        Attributes to set on the copies
+    """
+    static = n.components[component].static.reindex(names)
+    if static.empty:
+        return
+
+    copies = static.copy()
+    for col in [c for c in copies.columns if c.startswith("bus")]:
+        copies[col] = copies[col].map(bus_map).fillna(copies[col])
+    for col, value in (overrides or {}).items():
+        copies[col] = value
+
+    # Capacity already built for the whole pool is split, not handed to everyone
+    for attr in ("p_nom", "e_nom"):
+        if f"{attr}_extendable" in copies.columns:
+            copies.loc[~copies[f"{attr}_extendable"], attr] *= share
+
+    copies.index = pd.Index([national_name(name, country) for name in copies.index])
+
+    copies = copies[~copies.index.isin(n.components[component].static.index)]
+    if not copies.empty:
+        n.add(component, copies.index, **copies)
+
+
 def regionalise_eu_buses(
     n: pypsa.Network,
     carriers: list[str],
 ) -> None:
     """
-    Route flows between EU-wide commodity buses and national assets over one bus per country.
+    Give every country its own copy of the EU-wide commodity chains.
 
-    PyPSA-Eur pools commodities like oil or coal on a single EU bus that every
-    consumer draws from directly, so each consumer link is its own border crossing
-    and its flow is measured in whatever sits at bus0. Inserting a national bus per
-    commodity and country leaves exactly one crossing per commodity, carrying the
-    commodity itself in both directions.
+    PyPSA-Eur pools commodities like oil or coal on a single EU-wide bus that every
+    consumer draws from directly, and buys the primary energy there on behalf of the
+    whole model. Its cost then belongs to no country, which leaves it outside every
+    region of the mga cost split.
 
-    Supply (generators and stores) stays on the EU bus, so the commodity remains a
-    European pool. The interface links are free and bidirectional, which makes this
-    a pure reformulation: the EU-wide balance decomposes into the national balances
-    plus the interface flows, leaving the cost optimum unchanged.
+    Each country therefore gets its own supply chain: the primary energy generator,
+    the conversion links above it and the commodity store, all pointing at a national
+    commodity bus. Supply is unlimited at a fixed price and carries no capital cost,
+    so replicating it changes no cost; it only moves each euro to the country that
+    spends it, where `country_grouper` can find it.
+
+    The EU-wide bus is kept as a pure trade hub, reached over one free bidirectional
+    interface link per country, for the commodities that some country produces:
+    synthetic oil, methanol and ammonia have to be able to cross a border. For the
+    rest, coal, lignite and uranium, the only source is the supply every country now
+    has, so the pool is dropped rather than left as a way to obscure an import.
 
     Idempotent, so it can run again on a network that carries the national buses
     over from a previous planning horizon.
@@ -175,64 +351,86 @@ def regionalise_eu_buses(
     n : pypsa.Network
         Network to be optimized, modified in place
     carriers : list[str]
-        Carriers of the EU-wide commodity buses to route nationally
+        Carriers of the EU-wide commodity buses to nationalise
     """
-    eu_buses = n.buses[
+    commodity_buses = n.buses[
         (n.buses["location"] == "EU") & n.buses["carrier"].isin(carriers)
     ]
-    missing = set(carriers) - set(eu_buses["carrier"])
+    missing = set(carriers) - set(commodity_buses["carrier"])
     if missing:
         logger.warning(f"No EU-wide bus for carrier(s) {sorted(missing)}, skipping.")
 
+    # co2 is accounted for globally and never part of a commodity chain
+    eu_buses = n.buses.index[
+        (n.buses["location"] == "EU") & ~n.buses.index.str.contains("co2|atmosphere")
+    ]
     bus_cols = [col for col in n.links.columns if col.startswith("bus")]
     countries = [c for c in n.buses["country"].unique() if c]
 
-    for eu_bus, bus in eu_buses.iterrows():
+    for eu_bus, bus in commodity_buses.iterrows():
         interface = f"{bus.carrier} interface"
         if interface not in n.carriers.index:
             n.add("Carrier", interface, nice_name=interface)
 
-        # A previous horizon carries its links over already routed, but not the
-        # buses they point at. Send those back to the EU bus and re-route below.
-        national = [f"{country} {bus.carrier}" for country in countries]
-        ports = n.links[bus_cols]
-        dangling = ports.isin(national) & ~ports.isin(n.buses.index)
-        n.links[bus_cols] = ports.mask(dangling, eu_bus)
+        pool_buses, pool_links = pool_supply(n, eu_bus, eu_buses)
 
-        # Links on the EU bus, excluding the interfaces of an earlier call
-        on_eu_bus = n.links[bus_cols].isin([eu_bus]).any(axis="columns")
-        connected = n.links.index[on_eu_bus & (n.links["carrier"] != interface)]
+        # A previous horizon carries its assets over already nationalised, but not the
+        # buses they point at. Create those first so the references resolve again.
+        national = {national_name(b, c): (b, c) for b in pool_buses for c in countries}
+        for missing_bus in dangling_buses(n, national):
+            source, name = national[missing_bus]
+            n.add(
+                "Bus", missing_bus, country=name, location=name, **bus_attrs(n, source)
+            )
 
-        # Links without any national port stay on the EU bus, they are pooled supply
+        # Links on the pool, excluding its own supply chain and the interfaces of an
+        # earlier call
+        on_pool = n.links[bus_cols].isin([eu_bus]).any(axis="columns")
+        connected = n.links.index[on_pool & (n.links["carrier"] != interface)]
+        connected = connected.difference(pool_links)
         country = country_grouper(n, "Link")[connected]
-        country = country[country != ""]
 
-        for name, group in country.groupby(country):
-            national_bus = f"{name} {bus.carrier}"
+        # Keep the pool as a trade hub only where a country delivers into it
+        out_ports = [col for col in bus_cols if col != "bus0"]
+        delivers = n.links.loc[connected, out_ports].isin([eu_bus]).any(axis="columns")
+        traded = bool((delivers & (country != "")).any())
+
+        # Links without any national port are the pooled supply, they are copied below
+        country = country[country != ""]
+        groups = dict(list(country.groupby(country)))
+
+        # A country may only have assets carried over, without a fresh link on the pool
+        present = sorted(
+            set(groups)
+            | {c for c in countries if national_name(eu_bus, c) in n.buses.index}
+        )
+        share = 1 / len(present) if present else 1.0
+
+        for name in present:
+            group = groups.get(name, pd.Series(dtype=object))
+            national_bus = national_name(eu_bus, name)
             if national_bus not in n.buses.index:
                 n.add(
                     "Bus",
                     national_bus,
-                    carrier=bus.carrier,
-                    unit=bus.unit,
                     country=name,
                     location=name,
-                    x=bus.x,
-                    y=bus.y,
+                    **bus_attrs(n, eu_bus),
                 )
 
-            link = f"{national_bus} interface"
-            if link not in n.links.index:
-                n.add(
-                    "Link",
-                    link,
-                    bus0=eu_bus,
-                    bus1=national_bus,
-                    carrier=interface,
-                    p_nom=INTERFACE_P_NOM,
-                    p_min_pu=-1,
-                    lifetime=np.inf,
-                )
+            if traded:
+                link = f"{national_bus} interface"
+                if link not in n.links.index:
+                    n.add(
+                        "Link",
+                        link,
+                        bus0=eu_bus,
+                        bus1=national_bus,
+                        carrier=interface,
+                        p_nom=INTERFACE_P_NOM,
+                        p_min_pu=-1,
+                        lifetime=np.inf,
+                    )
 
             # Move the national side of every connected link onto the national bus
             ports = n.links.loc[group.index, bus_cols]
@@ -240,188 +438,72 @@ def regionalise_eu_buses(
                 ports == eu_bus, national_bus
             )
 
+            # Give the country the supply chain that used to serve the whole model
+            bus_map = {b: national_name(b, name) for b in pool_buses}
+            copy_to_country(
+                n,
+                "Bus",
+                pd.Index(pool_buses[1:]),
+                name,
+                bus_map,
+                overrides={"country": name, "location": name},
+            )
+            for c in ("Generator", "Store"):
+                static = n.components[c].static
+                on_pool = static.index[static["bus"].isin(pool_buses)]
+                copy_to_country(n, c, on_pool, name, bus_map, share)
+            copy_to_country(n, "Link", pool_links, name, bus_map, share)
+
+        # Drop the pooled supply now that every country has its own
+        n.remove("Link", pool_links)
+        for c in ("Generator", "Store"):
+            static = n.components[c].static
+            n.remove(c, static.index[static["bus"].isin(pool_buses)])
+        n.remove("Bus", pool_buses[1:] if traded else pool_buses)
+
         logger.info(
-            f"Routed {len(country)} link(s) on {eu_bus} "
-            f"over {country.nunique()} national bus(es)."
+            f"{eu_bus}: nationalised over {country.nunique()} country/-ies, "
+            f"{'kept as trade hub' if traded else 'pool dropped'}."
         )
 
     # The interface links leave pypsa-eur's own link columns unset, and `reversed`
     # is used as a boolean mask in add_lossy_bidirectional_link_constraints
     sanitize_custom_columns(n)
 
+    stranded = stranded_costs(n)
+    if stranded:
+        logger.warning(
+            f"Cost-bearing assets on a bus without a country, their cost falls "
+            f"outside every region of the mga split: {stranded}"
+        )
 
-def get_pool_prices(n: pypsa.Network, carriers: list[str]) -> dict[str, float]:
+
+def stranded_costs(n: pypsa.Network) -> list[str]:
     """
-    Unit cost of the supply feeding each EU-wide commodity pool.
+    Find cost-bearing components that belong to no country.
 
-    Only commodity bought from outside the model carries a cost here: a generator on
-    the pool bus, or one upstream of an unattributed conversion link feeding it, as
-    for oil which is refined from `EU oil primary`. Commodities that are merely
-    produced nationally, like methanol and ammonia, get a price of zero because their
-    cost is already charged to the producing country through their production links.
+    Their cost is left out of the regional mga cost split, so this should stay empty
+    once the EU-wide commodity chains are nationalised.
 
     Parameters
     ----------
     n : pypsa.Network
-        Network to be optimized, with the pools already routed nationally
-    carriers : list[str]
-        Carriers of the EU-wide commodity buses, see `regionalise_eu_buses`
+        Network to be optimized
 
     Returns
     -------
-    dict[str, float]
-        Price per carrier
+    list[str]
+        Names of the components
     """
-    eu_buses = n.buses[
-        (n.buses["location"] == "EU") & n.buses["carrier"].isin(carriers)
-    ]
-    link_country = country_grouper(n, "Link")
-
-    prices = {}
-    for eu_bus, bus in eu_buses.iterrows():
-        gens = n.generators[n.generators["bus"] == eu_bus]
-        if not gens.empty:
-            prices[bus.carrier] = gens["marginal_cost"].mean()
+    stranded = []
+    for c in ("Generator", "Link", "Store", "StorageUnit"):
+        static = n.components[c].static
+        if static.empty:
             continue
+        costly = (static["capital_cost"] != 0) | (static["marginal_cost"] != 0)
+        stranded += static.index[(country_grouper(n, c) == "") & costly].to_list()
 
-        # Supply arriving over a link that belongs to no country, priced per unit of
-        # commodity delivered to the pool
-        price = 0.0
-        feeding = n.links[(n.links["bus1"] == eu_bus) & (link_country == "")]
-        for _, link in feeding.iterrows():
-            upstream = n.generators[n.generators["bus"] == link["bus0"]]
-            if not upstream.empty:
-                price = (
-                    upstream["marginal_cost"].mean() + link["marginal_cost"]
-                ) / link["efficiency"]
-        prices[bus.carrier] = price
-
-    logger.info(
-        f"Commodity pool prices: { {k: round(v, 3) for k, v in prices.items()} }"
-    )
-
-    return prices
-
-
-def interface_price_coefficients(
-    n: pypsa.Network, prices: dict[str, float], countries: list[str]
-) -> pd.Series:
-    """
-    Price the interface links of the given countries, everything else zero.
-
-    Parameters
-    ----------
-    n : pypsa.Network
-        Network to be optimized
-    prices : dict[str, float]
-        Price per carrier, see `get_pool_prices`
-    countries : list[str]
-        Countries whose draw from the pools is to be priced
-
-    Returns
-    -------
-    pd.Series
-        Price per link
-    """
-    carrier = n.links["carrier"]
-    interfaces = carrier.str.endswith(" interface")
-    country = country_grouper(n, "Link")
-
-    coeffs = pd.Series(0.0, index=n.links.index)
-    selected = interfaces & country.isin(countries)
-    coeffs[selected] = (
-        carrier[selected].str.removesuffix(" interface").map(prices).fillna(0.0)
-    )
-
-    return coeffs
-
-
-def pool_cost_expression(
-    n: pypsa.Network, prices: dict[str, float], countries: list[str]
-) -> LinearExpression:
-    """
-    Build the cost of the commodity the given countries draw from the EU-wide pools.
-
-    The pools are a European commodity market that belongs to no country, so their
-    supply cost is attributed to whoever draws it: every country reaches a pool over
-    exactly one interface link per commodity, see `regionalise_eu_buses`, and pays
-    the pool price for what flows over it. Exporting into a pool yields a credit, so
-    domestic production nets against the draw just as it does for the flows.
-
-    Parameters
-    ----------
-    n : pypsa.Network
-        Network to be optimized
-    prices : dict[str, float]
-        Price per carrier, see `get_pool_prices`
-    countries : list[str]
-        Countries whose draw from the pools is to be priced
-
-    Returns
-    -------
-    LinearExpression
-        Cost of the commodity drawn by the given countries
-    """
-    p = n.model["Link-p"]
-    coeffs = interface_price_coefficients(n, prices, countries)
-    expr = p * coeffs.reindex(p.indexes["name"], fill_value=0.0)
-
-    return (expr * n.snapshot_weightings.objective).sum()
-
-
-def pool_cost_value(
-    n: pypsa.Network, prices: dict[str, float], countries: list[str]
-) -> float:
-    """
-    Calculate the counterpart of `pool_cost_expression` for a solved network.
-
-    Parameters
-    ----------
-    n : pypsa.Network
-        Solved network
-    prices : dict[str, float]
-        Price per carrier, see `get_pool_prices`
-    countries : list[str]
-        Countries whose draw from the pools is to be priced
-
-    Returns
-    -------
-    float
-        Cost of the commodity drawn by the given countries
-    """
-    coeffs = interface_price_coefficients(n, prices, countries)
-    coeffs = coeffs[coeffs != 0]
-    flows = n.links_t.p0.reindex(columns=coeffs.index, fill_value=0.0)
-
-    return float(
-        flows.mul(coeffs, axis="columns")
-        .mul(n.snapshot_weightings.objective, axis="index")
-        .to_numpy()
-        .sum()
-    )
-
-
-def get_countries(n: pypsa.Network, region: list[str]) -> tuple[list[str], list[str]]:
-    """
-    Get the countries in- and outside of the region.
-
-    Parameters
-    ----------
-    n : pypsa.Network
-        Network to be optimized
-    region : list[str]
-        Countries being part of region
-
-    Returns
-    -------
-    tuple[list[str], list[str]]
-        Countries inside, countries outside of region
-    """
-    countries = sorted(c for c in n.buses["country"].unique() if c)
-
-    return [c for c in countries if c in region], [
-        c for c in countries if c not in region
-    ]
+    return stranded
 
 
 def split_df_by_region(
@@ -429,10 +511,6 @@ def split_df_by_region(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Split statistics grouped by country into their in- and out-of-region part.
-
-    Components that belong to no country are the EU-wide commodity pools. They are
-    dropped here and attributed to the countries drawing from them instead, see
-    `pool_cost_value`.
 
     Parameters
     ----------
@@ -447,10 +525,9 @@ def split_df_by_region(
     tuple[pd.DataFrame, pd.DataFrame]
         Values inside, values outside of region
     """
-    country = df.index.get_level_values("country")
-    in_region = country.isin(region)
+    in_region = df.index.get_level_values("country").isin(region)
 
-    return df.loc[in_region], df.loc[~in_region & (country != "")]
+    return df.loc[in_region], df.loc[~in_region]
 
 
 def split_expression_by_region(
@@ -460,8 +537,7 @@ def split_expression_by_region(
     Split an expression grouped by country into its in- and out-of-region part.
 
     Uses the same country assignment as `split_df_by_region` does for the
-    corresponding `n.statistics` values, so the EU-wide commodity pools are dropped
-    here as well and attributed via `pool_cost_expression` instead.
+    corresponding `n.statistics` values.
 
     Parameters
     ----------
@@ -477,12 +553,11 @@ def split_expression_by_region(
         Expression inside, expression outside of region
     """
     groups = expr.indexes["group"]
-    countries = groups.get_level_values("country")
-    in_region = countries.isin(region)
-    out_region = ~in_region & (countries != "")
+    in_region = groups.get_level_values("country").isin(region)
+
     return (
         expr.sel(group=groups[in_region]).sum(),
-        expr.sel(group=groups[out_region]).sum(),
+        expr.sel(group=groups[~in_region]).sum(),
     )
 
 

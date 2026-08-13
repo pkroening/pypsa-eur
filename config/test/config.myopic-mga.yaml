@@ -71,32 +71,39 @@ scenario:
               s:
                 AC: 1
 
-      # Fossil imports as primary energy. One interface link per commodity, each
-      # carrying that commodity in both directions, so domestic production nets
-      # against the draw. Gas is already nodal and crosses on its pipeline.
+      # Fossil imports as primary energy. Every country buys its own primary energy,
+      # so the generators are the import. The oil interface is counted too, otherwise
+      # buying through a neighbour's hub would hide the import; coal, lignite and
+      # uranium have no hub. Gas is already nodal and crosses on its pipeline.
       min-imports_fossil:
         weights:
           varying:
+            Generator:
+              p:
+                "oil primary": 1
+                coal: 1
+                lignite: 1
             Link:
               p:
-              #  "uranium interface": 1
                 "oil interface": 1
-                "coal interface": 1
-                "lignite interface": 1
                 "gas pipeline": 1
 
       # Same carriers as electricity equivalents. Weights are the efficiency of
       # each fuel's link into an AC bus (coal 0.356, lignite 0.330, oil 0.350,
       # gas 0.570 via CCGT), taken as a fixed reference: they drift by 1-3 % over
-      # the horizons and coal has no link into AC left in 2035.
+      # the horizons and coal has no link into AC left in 2035. Primary oil is
+      # weighted before refining, 0.350 * 0.949.
       min-imports_fossil_el:
         weights:
           varying:
+            Generator:
+              p:
+                "oil primary": 0.332
+                coal: 0.356
+                lignite: 0.330
             Link:
               p:
                 "oil interface": 0.350
-                "coal interface": 0.356
-                "lignite interface": 0.330
                 "gas pipeline": 0.570
 
       # Synthetic fuel imports as primary energy. H2 is already nodal and crosses
