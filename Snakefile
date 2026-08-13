@@ -25,6 +25,7 @@ from scripts.lib.validation.config import validate_config
 
 
 configfile: "config/config.default.yaml"
+configfile: "config/config.myopic-mga.yaml"
 configfile: "config/plotting.default.yaml"
 
 
