@@ -81,9 +81,9 @@ scenario:
                 AC: 1
 
       # Fossil imports as primary energy. Every country buys its own primary energy,
-      # so the generators are the import. The oil interface is counted too, otherwise
-      # buying through a neighbour's hub would hide the import; coal, lignite and
-      # uranium have no hub. Gas is already nodal and crosses on its pipeline.
+      # so the generators are the import; gas is nodal and bought the same way. The
+      # oil interface is counted too, otherwise buying through a neighbour's hub
+      # would hide the import; coal, lignite and uranium have no hub.
       min-imports_fossil:
         weights:
           varying:
@@ -92,6 +92,7 @@ scenario:
                 "oil primary": 1
                 coal: 1
                 lignite: 1
+                gas: 1
             Link:
               p:
                 "oil interface": 1
@@ -110,6 +111,7 @@ scenario:
                 "oil primary": 0.332
                 coal: 0.356
                 lignite: 0.330
+                gas: 0.570
             Link:
               p:
                 "oil interface": 0.350
