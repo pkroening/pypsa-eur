@@ -250,11 +250,189 @@ def regionalise_eu_buses(
     sanitize_custom_columns(n)
 
 
+def get_pool_prices(n: pypsa.Network, carriers: list[str]) -> dict[str, float]:
+    """
+    Unit cost of the supply feeding each EU-wide commodity pool.
+
+    Only commodity bought from outside the model carries a cost here: a generator on
+    the pool bus, or one upstream of an unattributed conversion link feeding it, as
+    for oil which is refined from `EU oil primary`. Commodities that are merely
+    produced nationally, like methanol and ammonia, get a price of zero because their
+    cost is already charged to the producing country through their production links.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized, with the pools already routed nationally
+    carriers : list[str]
+        Carriers of the EU-wide commodity buses, see `regionalise_eu_buses`
+
+    Returns
+    -------
+    dict[str, float]
+        Price per carrier
+    """
+    eu_buses = n.buses[
+        (n.buses["location"] == "EU") & n.buses["carrier"].isin(carriers)
+    ]
+    link_country = country_grouper(n, "Link")
+
+    prices = {}
+    for eu_bus, bus in eu_buses.iterrows():
+        gens = n.generators[n.generators["bus"] == eu_bus]
+        if not gens.empty:
+            prices[bus.carrier] = gens["marginal_cost"].mean()
+            continue
+
+        # Supply arriving over a link that belongs to no country, priced per unit of
+        # commodity delivered to the pool
+        price = 0.0
+        feeding = n.links[(n.links["bus1"] == eu_bus) & (link_country == "")]
+        for _, link in feeding.iterrows():
+            upstream = n.generators[n.generators["bus"] == link["bus0"]]
+            if not upstream.empty:
+                price = (
+                    upstream["marginal_cost"].mean() + link["marginal_cost"]
+                ) / link["efficiency"]
+        prices[bus.carrier] = price
+
+    logger.info(
+        f"Commodity pool prices: { {k: round(v, 3) for k, v in prices.items()} }"
+    )
+
+    return prices
+
+
+def interface_price_coefficients(
+    n: pypsa.Network, prices: dict[str, float], countries: list[str]
+) -> pd.Series:
+    """
+    Price the interface links of the given countries, everything else zero.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    prices : dict[str, float]
+        Price per carrier, see `get_pool_prices`
+    countries : list[str]
+        Countries whose draw from the pools is to be priced
+
+    Returns
+    -------
+    pd.Series
+        Price per link
+    """
+    carrier = n.links["carrier"]
+    interfaces = carrier.str.endswith(" interface")
+    country = country_grouper(n, "Link")
+
+    coeffs = pd.Series(0.0, index=n.links.index)
+    selected = interfaces & country.isin(countries)
+    coeffs[selected] = (
+        carrier[selected].str.removesuffix(" interface").map(prices).fillna(0.0)
+    )
+
+    return coeffs
+
+
+def pool_cost_expression(
+    n: pypsa.Network, prices: dict[str, float], countries: list[str]
+) -> LinearExpression:
+    """
+    Build the cost of the commodity the given countries draw from the EU-wide pools.
+
+    The pools are a European commodity market that belongs to no country, so their
+    supply cost is attributed to whoever draws it: every country reaches a pool over
+    exactly one interface link per commodity, see `regionalise_eu_buses`, and pays
+    the pool price for what flows over it. Exporting into a pool yields a credit, so
+    domestic production nets against the draw just as it does for the flows.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    prices : dict[str, float]
+        Price per carrier, see `get_pool_prices`
+    countries : list[str]
+        Countries whose draw from the pools is to be priced
+
+    Returns
+    -------
+    LinearExpression
+        Cost of the commodity drawn by the given countries
+    """
+    p = n.model["Link-p"]
+    coeffs = interface_price_coefficients(n, prices, countries)
+    expr = p * coeffs.reindex(p.indexes["name"], fill_value=0.0)
+
+    return (expr * n.snapshot_weightings.objective).sum()
+
+
+def pool_cost_value(
+    n: pypsa.Network, prices: dict[str, float], countries: list[str]
+) -> float:
+    """
+    Calculate the counterpart of `pool_cost_expression` for a solved network.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Solved network
+    prices : dict[str, float]
+        Price per carrier, see `get_pool_prices`
+    countries : list[str]
+        Countries whose draw from the pools is to be priced
+
+    Returns
+    -------
+    float
+        Cost of the commodity drawn by the given countries
+    """
+    coeffs = interface_price_coefficients(n, prices, countries)
+    coeffs = coeffs[coeffs != 0]
+    flows = n.links_t.p0.reindex(columns=coeffs.index, fill_value=0.0)
+
+    return float(
+        flows.mul(coeffs, axis="columns")
+        .mul(n.snapshot_weightings.objective, axis="index")
+        .to_numpy()
+        .sum()
+    )
+
+
+def get_countries(n: pypsa.Network, region: list[str]) -> tuple[list[str], list[str]]:
+    """
+    Get the countries in- and outside of the region.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    region : list[str]
+        Countries being part of region
+
+    Returns
+    -------
+    tuple[list[str], list[str]]
+        Countries inside, countries outside of region
+    """
+    countries = sorted(c for c in n.buses["country"].unique() if c)
+
+    return [c for c in countries if c in region], [
+        c for c in countries if c not in region
+    ]
+
+
 def split_df_by_region(
     df: pd.DataFrame, region: list[str]
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Split statistics grouped by country into their in- and out-of-region part.
+
+    Components that belong to no country are the EU-wide commodity pools. They are
+    dropped here and attributed to the countries drawing from them instead, see
+    `pool_cost_value`.
 
     Parameters
     ----------
@@ -269,8 +447,10 @@ def split_df_by_region(
     tuple[pd.DataFrame, pd.DataFrame]
         Values inside, values outside of region
     """
-    in_region = df.index.get_level_values("country").isin(region)
-    return df.loc[in_region], df.loc[~in_region]
+    country = df.index.get_level_values("country")
+    in_region = country.isin(region)
+
+    return df.loc[in_region], df.loc[~in_region & (country != "")]
 
 
 def split_expression_by_region(
@@ -280,7 +460,8 @@ def split_expression_by_region(
     Split an expression grouped by country into its in- and out-of-region part.
 
     Uses the same country assignment as `split_df_by_region` does for the
-    corresponding `n.statistics` values.
+    corresponding `n.statistics` values, so the EU-wide commodity pools are dropped
+    here as well and attributed via `pool_cost_expression` instead.
 
     Parameters
     ----------
@@ -296,10 +477,12 @@ def split_expression_by_region(
         Expression inside, expression outside of region
     """
     groups = expr.indexes["group"]
-    in_region = groups.get_level_values("country").isin(region)
+    countries = groups.get_level_values("country")
+    in_region = countries.isin(region)
+    out_region = ~in_region & (countries != "")
     return (
         expr.sel(group=groups[in_region]).sum(),
-        expr.sel(group=groups[~in_region]).sum(),
+        expr.sel(group=groups[out_region]).sum(),
     )
 
 
@@ -339,31 +522,38 @@ def prepare_mga_regional(
         "SubNetwork",
     }
 
-    for name in [c.name for c in n.components]:
-        if name in components_to_skip:
+    # Components are attributed like their costs are, so that the part of the network
+    # taken from `n_opt` matches the part of the cost bound taken from it. Assets on an
+    # EU-wide bus belong to no country and are shared, so they stay with `n`. Buses have
+    # no country of their own and are split directly. Assigned up front because the
+    # removals below drop the buses the country of a component is read from.
+    names = [c.name for c in n.components if c.name not in components_to_skip]
+    partition = {}
+    for name in names:
+        if name == "Bus":
+            partition[name] = (buses_out, buses_in)
             continue
-        comp, comp_opt = n.components[name], n_opt.components[name]
+        country, country_opt = country_grouper(n, name), country_grouper(n_opt, name)
+        partition[name] = (
+            n.components[name].static.index[~country.isin(region) & (country != "")],
+            n_opt.components[name].static.index[
+                country_opt.isin(region) | (country_opt == "")
+            ],
+        )
+
+    for name in names:
+        comp_opt = n_opt.components[name]
 
         # Disable extension and fix optimal value
         attrs = [
             col.removesuffix("_extendable")
-            for col in comp.static.columns
+            for col in comp_opt.static.columns
             if col.endswith("_nom_extendable")
         ]
         comp_opt.static[attrs] = comp_opt.static[[f"{attr}_opt" for attr in attrs]]
         comp_opt.static[[f"{attr}_extendable" for attr in attrs]] = False
 
-        # Get components inside and outside of region
-        if name == "Bus":
-            out_region, in_region_opt = buses_out, buses_in
-        else:
-            bus_cols = [col for col in comp.static.columns if col.startswith("bus")]
-            in_region = comp.static[bus_cols].isin(buses_in).any(axis="columns")
-            out_region = comp.static.index[~in_region]
-            in_region_opt = comp_opt.static.index[
-                comp_opt.static[bus_cols].isin(buses_in).any(axis="columns")
-            ]
-
+        out_region, in_region_opt = partition[name]
         overlap = out_region.intersection(in_region_opt)
         if not overlap.empty:
             raise RuntimeError(

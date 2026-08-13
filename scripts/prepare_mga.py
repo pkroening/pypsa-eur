@@ -11,7 +11,11 @@ from pypsa.descriptors import nominal_attrs
 
 from scripts.prepare_mga_regional import (
     country_grouper,
+    get_countries,
     get_cross_border_components,
+    get_pool_prices,
+    pool_cost_expression,
+    pool_cost_value,
     split_df_by_region,
     split_expression_by_region,
 )
@@ -132,6 +136,12 @@ def build_cost_objective(
     region = mga_config.get("region", None)
     if region:
         new_obj, _ = split_expression_by_region(expr, region)
+        # The commodity drawn from the EU-wide pools is an operational cost of the
+        # region, but sits with no country of its own
+        carriers = mga_config.get("regionalise_eu_buses", [])
+        if cost_type == "opex" and carriers:
+            prices = get_pool_prices(n, carriers)
+            new_obj = new_obj + pool_cost_expression(n, prices, region)
     else:
         new_obj = expr.sum()
 
@@ -342,16 +352,20 @@ def set_mga_constraint(
             snakemake.params.planning_horizons,
         )
 
-    def calc_bound(capex: pd.Series, opex: pd.Series, capex_const: pd.Series) -> float:
+    def calc_bound(
+        capex: pd.Series,
+        opex: pd.Series,
+        capex_const: pd.Series,
+        pool_cost: float = 0.0,
+    ) -> float:
         # The expressions cover extendable capacities only, so the constant capex of the
         # non-extendable components is subtracted from the bound instead
-        return (1 + slack) * (capex.sum() + opex.sum()) - capex_const.sum()
+        return (1 + slack) * (capex.sum() + opex.sum() + pool_cost) - capex_const.sum()
 
     # Get cost-optimal network and values
     n_opt = pypsa.Network(snakemake.input.network_opt)
     capex = n_opt.statistics.capex(groupby=country_grouper, groupby_method="sum")
     opex = n_opt.statistics.opex(groupby=country_grouper, groupby_method="sum")
-    del n_opt
 
     # Costs of the network to be optimized, grouped like the statistics above
     capex_expr = build_cost_expression(n, "capex")
@@ -367,14 +381,28 @@ def set_mga_constraint(
         capex_expr_in, capex_expr_out = split_expression_by_region(capex_expr, region)
         opex_expr_in, opex_expr_out = split_expression_by_region(opex_expr, region)
 
+        # The commodity pools belong to no country and are left out of both splits,
+        # so charge what each side draws from them to that side
+        pool_in = pool_out = 0.0
+        carriers = snakemake.params.mga.get("regionalise_eu_buses", [])
+        if carriers:
+            countries_in, countries_out = get_countries(n, region)
+            prices = get_pool_prices(n, carriers)
+            opex_expr_in = opex_expr_in + pool_cost_expression(n, prices, countries_in)
+            opex_expr_out = opex_expr_out + pool_cost_expression(
+                n, prices, countries_out
+            )
+            pool_in = pool_cost_value(n_opt, prices, countries_in)
+            pool_out = pool_cost_value(n_opt, prices, countries_out)
+
         constraints = {
             "near_opt_bound_in_region": (
                 capex_expr_in + opex_expr_in,
-                calc_bound(capex_in, opex_in, capex_const_in),
+                calc_bound(capex_in, opex_in, capex_const_in, pool_in),
             ),
             "near_opt_bound_out_region": (
                 capex_expr_out + opex_expr_out,
-                calc_bound(capex_out, opex_out, capex_const_out),
+                calc_bound(capex_out, opex_out, capex_const_out, pool_out),
             ),
         }
     else:
@@ -384,6 +412,8 @@ def set_mga_constraint(
                 calc_bound(capex, opex, capex_const),
             )
         }
+
+    del n_opt
 
     for c_name, (expr, obj_bound) in constraints.items():
         # Add globalconstraint object so dual variable can be registered (if it doesn't already exist)
