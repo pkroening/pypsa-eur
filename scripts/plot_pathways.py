@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import logging
+from math import ceil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -18,6 +19,8 @@ plt.style.use("bmh")
 SCENARIO_LEVELS = ["cluster", "opt", "sector_opt", "alternative_objectives", "slack"]
 DEFAULT_LEGEND = {"loc": "outside right center"}
 STACKED_LEGEND = {"loc": "outside lower center", "ncol": 6, "fontsize": "small"}
+GRID_MAX_ROWS = 5
+GRID_PANEL_SIZE = (6, 2.2)
 
 
 def _clean_columns(columns: pd.MultiIndex) -> pd.MultiIndex:
@@ -61,9 +64,32 @@ def _by_scenario(
     }
 
 
-def _row_subplots(n_rows: int, figsize: tuple = (10, 5)):
-    fig, axes = plt.subplots(n_rows, figsize=figsize, sharex=True, layout="constrained")
-    return fig, np.atleast_1d(axes)
+def _panel_grid(n_panels: int, figsize: tuple = None):
+    """Wrap the panels into columns so they stay legible for many objectives."""
+    ncols = ceil(n_panels / GRID_MAX_ROWS)
+    nrows = ceil(n_panels / ncols)
+    width, height = GRID_PANEL_SIZE
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=figsize or (max(10, width * ncols), max(5, height * nrows)),
+        sharex=True,
+        sharey=True,
+        layout="constrained",
+    )
+    axes = np.atleast_1d(axes).flatten()
+    for ax in axes[n_panels:]:
+        ax.set_visible(False)
+    return fig, axes[:n_panels]
+
+
+def _bottom_axes(axes) -> list:
+    """A column may end early, leaving its last panel without the shared x labels."""
+    columns = {}
+    for ax in axes:
+        spec = ax.get_subplotspec()
+        columns.setdefault(spec.colspan.start, []).append((spec.rowspan.start, ax))
+    return [max(column, key=lambda panel: panel[0])[1] for column in columns.values()]
 
 
 def _reset(figure: tuple):
@@ -81,7 +107,6 @@ def _finalize(
 ):
     fig.suptitle(title)
     fig.supylabel(ylabel)
-    axes[-1].set_xlabel("Time")
 
     handles, labels = [], []
     for ax in axes:
@@ -92,6 +117,10 @@ def _finalize(
         if y_max > 0:
             ax.set_ylim(0, y_max * 1.1)
     fig.legend(handles, labels, **legend)
+
+    for ax in _bottom_axes(axes):
+        ax.tick_params(labelbottom=True)
+        ax.set_xlabel("Time")
 
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -123,7 +152,7 @@ def _plot_technology(
     for ax, slack in zip(axes_obj, slacks):
         ax.set_ylabel(f"s={float(slack):.0%}")
     for ax, objective in zip(axes_slack, objectives):
-        ax.set_ylabel(objective)
+        ax.set_ylabel(objective, fontsize="small")
 
     for (objective, slack), y in y_mga.items():
         axes_obj[slacks.index(slack)].plot(x, y, marker="x", label=objective)
@@ -196,9 +225,9 @@ def _plot_pathways(
         return
     slack_range = max(float(s) for s in slacks)
 
-    obj_figure = _row_subplots(len(slacks))
-    slack_figure = _row_subplots(len(objectives))
-    stack_figure = _row_subplots(1, figsize=(16, 9)) if stacked else None
+    obj_figure = _panel_grid(len(slacks))
+    slack_figure = _panel_grid(len(objectives))
+    stack_figure = _panel_grid(1, figsize=(16, 9)) if stacked else None
 
     for label, totals in quantities.items():
         scenarios = _by_scenario(totals, horizons)
