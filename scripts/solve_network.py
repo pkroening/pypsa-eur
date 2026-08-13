@@ -1507,6 +1507,7 @@ if __name__ == "__main__":
     update_config_from_wildcards(snakemake.config, snakemake.wildcards)
 
     solve_opts = snakemake.params.solving["options"]
+    cf_solving = snakemake.params.solving["options"]
 
     # On retries use numerical solver option
     if getattr(snakemake.resources, "attempt", 1) > 1:
@@ -1520,21 +1521,21 @@ if __name__ == "__main__":
     n = pypsa.Network(snakemake.input.network)
     planning_horizons = snakemake.wildcards.get("planning_horizons", None)
 
-    rolling_horizon = solve_opts.get("rolling_horizon", False)
-
     # Prepare network (settings before solving)
     prepare_network(
         n,
-        solve_opts=solve_opts,
+        solve_opts=snakemake.params.solving["options"],
         foresight=snakemake.params.foresight,
         planning_horizons=planning_horizons,
         co2_sequestration_potential=snakemake.params["co2_sequestration_potential"],
         limit_max_growth=snakemake.params.get("sector", {}).get("limit_max_growth"),
-        rolling_horizon=rolling_horizon,
+        rolling_horizon=cf_solving["rolling_horizon"],
     )
 
     # Determine solve mode
-    skip_iterations = solve_opts.get("skip_iterations", False)
+    rolling_horizon = cf_solving.get("rolling_horizon", False)
+    skip_iterations = cf_solving.get("skip_iterations", False)
+
     if not n.lines.s_nom_extendable.any():
         skip_iterations = True
         logger.info("No expandable lines found. Skipping iterative solving.")
@@ -1607,7 +1608,6 @@ if __name__ == "__main__":
             )
 
     logger.info(f"Maximum memory usage: {mem.mem_usage}")
-    logger.info(f"Solving status '{status}' with termination condition '{condition}'")
 
     # Check results
     if not rolling_horizon:
