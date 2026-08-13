@@ -50,10 +50,19 @@ scenario:
     # Objective functions
     alternative_objectives:
 
-      # Self-sufficiency
+      # Self-sufficiency: everything entering the region, from a neighbour over any
+      # connector, or from outside the model over the primary energy each country
+      # buys for itself. Both are needed since nationalising the commodity chains
+      # moved the fossil purchase off the interface links onto the generators.
       min-imports:
         weights:
           varying:
+            Generator:
+              p:
+                "oil primary": 1
+                coal: 1
+                lignite: 1
+                gas: 1
             Link:
               p:
                 # ignored
