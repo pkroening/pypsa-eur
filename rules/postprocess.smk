@@ -583,20 +583,6 @@ if "mga" in config["scenario"]:
             expand(RESULTS + "graphs/costs.pdf"),
             expand(RESULTS + "graphs_mga/costs.pdf"),
 
-    rule all_mga:
-        input:
-            # Collector rules
-            rules.make_all_summaries.input,
-            rules.plot_all_summaries.input,
-            rules.plot_balance_maps.input,
-            rules.plot_all_balance_timeseries.input,
-            rules.plot_all_heatmap_timeseries.input,
-            rules.plot_all_interactive_bus_balance.input,
-            # Non collector rules
-            rules.plot_pathways.output,
-        message:
-            "Collecting all near optimal results"
-
 
 rule make_cumulative_costs:
     input:

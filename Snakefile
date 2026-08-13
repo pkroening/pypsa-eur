@@ -108,6 +108,21 @@ if config["foresight"] == "perfect":
     include: "rules/solve_perfect.smk"
 
 
+rule all_mga:
+    input:
+        # Collector rules
+        rules.make_all_summaries.input,
+        rules.plot_all_summaries.input,
+        rules.plot_balance_maps.input,
+        rules.plot_all_balance_timeseries.input,
+        rules.plot_all_heatmap_timeseries.input,
+        rules.plot_all_interactive_bus_balance.input,
+        # Non collector rules
+        rules.plot_pathways.output,
+    message:
+        "Collecting all near optimal results"
+
+
 rule all:
     input:
         expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
