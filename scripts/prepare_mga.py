@@ -376,7 +376,8 @@ def set_mga_constraint(
             ),
             "near_opt_bound_out_region": (
                 capex_expr_out + opex_expr_out,
-                calc_bound(capex_out, opex_out, capex_const_out),
+                # decision variables just operation -> slack base operation
+                (1 + slack) * opex_out.sum(),
             ),
         }
     else:
