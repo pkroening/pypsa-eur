@@ -137,6 +137,19 @@ def balance_map_paths(kind, w):
     )
 
 
+rule make_all_summaries:
+    input:
+        expand(RESULTS + "csvs/costs.csv"),
+        expand(RESULTS + "csvs_mga/costs.csv"),
+        expand(RESULTS + "csvs_mga/cumulative_costs.csv"),
+
+
+rule plot_all_summaries:
+    input:
+        expand(RESULTS + "graphs/costs.pdf"),
+        expand(RESULTS + "graphs_mga/costs.pdf"),
+
+
 rule plot_balance_maps:
     input:
         static=lambda w: balance_map_paths("static", w),
