@@ -575,14 +575,14 @@ if "mga" in config["scenario"]:
 
     rule make_all_summaries:
         input:
-            expand(RESULTS + "csvs/costs.csv", run=config["run"]["name"]),
-            expand(RESULTS + "csvs_mga/costs.csv", run=config["run"]["name"]),
-            expand(RESULTS + "csvs_mga/cumulative_costs.csv", run=config["run"]["name"]),
+            expand(RESULTS + "csvs/costs.csv"),
+            expand(RESULTS + "csvs_mga/costs.csv"),
+            expand(RESULTS + "csvs_mga/cumulative_costs.csv"),
 
     rule plot_all_summaries:
         input:
-            expand(RESULTS + "graphs/costs.pdf", run=config["run"]["name"]),
-            expand(RESULTS + "graphs_mga/costs.pdf", run=config["run"]["name"]),
+            expand(RESULTS + "graphs/costs.pdf"),
+            expand(RESULTS + "graphs_mga/costs.pdf"),
 
     rule all_mga:
         input:
@@ -592,7 +592,7 @@ if "mga" in config["scenario"]:
             rules.plot_all_balance_timeseries.input,
             rules.plot_all_heatmap_timeseries.input,
             rules.plot_all_interactive_bus_balance.input,
-            expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
+            expand(RESULTS + "pathways/pathways"),
         message:
             "Collecting all near optimal results"
 
