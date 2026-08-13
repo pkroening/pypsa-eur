@@ -586,13 +586,15 @@ if "mga" in config["scenario"]:
 
     rule all_mga:
         input:
+            # Collector rules
             rules.make_all_summaries.input,
             rules.plot_all_summaries.input,
             rules.plot_balance_maps.input,
             rules.plot_all_balance_timeseries.input,
             rules.plot_all_heatmap_timeseries.input,
             rules.plot_all_interactive_bus_balance.input,
-            expand(RESULTS + "pathways/pathways"),
+            # Non collector rules
+            rules.plot_pathways.output,
         message:
             "Collecting all near optimal results"
 
