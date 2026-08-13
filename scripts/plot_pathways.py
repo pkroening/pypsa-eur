@@ -38,19 +38,14 @@ def _clean_columns(columns: pd.MultiIndex) -> pd.MultiIndex:
 def _region_totals(
     file_path: str, n_header: int, n_index: int, region: tuple, levels: list[str]
 ) -> pd.DataFrame:
-    """Sum the rows located in `region` per `levels`, reading the csv in chunks."""
-    chunks = pd.read_csv(
+    """Sum the rows located in `region` per `levels`."""
+    df = pd.read_csv(
         file_path,
         index_col=list(range(n_index)),
         header=list(range(n_header)),
     )
     totals = (
-        pd.concat(
-            chunk[chunk.index.get_level_values("location").str.startswith(region)]
-            .groupby(level=levels, sort=False)
-            .sum()
-            for chunk in chunks
-        )
+        df[df.index.get_level_values("location").str.startswith(region)]
         .groupby(level=levels, sort=False)
         .sum()
     )
