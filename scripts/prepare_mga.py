@@ -321,6 +321,41 @@ def calculate_slack_myopic(
     return slack
 
 
+def assert_no_capex_out_of_region(
+    n: pypsa.Network,
+    capex_expr_out: LinearExpression,
+) -> None:
+    """
+    Check that no capital cost is left to be decided outside of the region.
+
+    `prepare_mga_regional` fixes every capacity outside the region, so the near-optimal
+    bound there only has to cover the operational costs. Components without a country
+    are not fixed, but their cost is expected to be zero, see `stranded_costs`.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to be optimized
+    capex_expr_out : LinearExpression
+        Out-of-region part of the capital expenditures
+
+    Raises
+    ------
+    RuntimeError
+        If an extendable component out of the region carries a capital cost
+    """
+    # `flat` drops the terms with a zero coefficient and the empty slots of the array
+    terms = capex_expr_out.flat
+    if terms.empty:
+        return
+
+    positions = n.model.variables.get_label_position(terms["vars"].to_numpy())
+    raise RuntimeError(
+        "Capacities outside the region are expected to be fixed at their cost-optimal "
+        f"value, but these still carry a capital cost: {positions}"
+    )
+
+
 def set_mga_constraint(
     n: pypsa.Network,
     snakemake,
@@ -369,14 +404,19 @@ def set_mga_constraint(
         capex_expr_in, capex_expr_out = split_expression_by_region(capex_expr, region)
         opex_expr_in, opex_expr_out = split_expression_by_region(opex_expr, region)
 
+        if not capex_expr_out.flat.empty:
+            raise RuntimeError(
+                "Decion variables outside the region are expected to not carry capital cost."
+            )
+
         constraints = {
             "near_opt_bound_in_region": (
                 capex_expr_in + opex_expr_in,
                 calc_bound(capex_in, opex_in, capex_const_in),
             ),
+            # decision variables just operation -> slack base operation
             "near_opt_bound_out_region": (
-                capex_expr_out + opex_expr_out,
-                # decision variables just operation -> slack base operation
+                opex_expr_out,
                 (1 + slack) * opex_out.sum(),
             ),
         }
