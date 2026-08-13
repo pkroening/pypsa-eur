@@ -11,12 +11,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from scripts._helpers import (
-    configure_logging,
-    extend_tech_keys,
-    rename_techs,
-    set_scenario_config,
-)
+from scripts._helpers import configure_logging, rename_techs, set_scenario_config
 from scripts.prepare_sector_network import co2_emissions_year
 
 logger = logging.getLogger(__name__)
@@ -77,9 +72,9 @@ def check_tech_colors(tech_colors, keys):
         )
 
 
-def plot_costs(smk, n_header):
+def plot_costs(snakemake, n_header):
     cost_df = pd.read_csv(
-        smk.input.costs, index_col=list(range(3)), header=list(range(n_header))
+        snakemake.input.costs, index_col=list(range(3)), header=list(range(n_header))
     )
 
     df = cost_df.groupby("carrier").sum()
@@ -89,10 +84,10 @@ def plot_costs(smk, n_header):
 
     df = df.groupby(df.index.map(rename_techs)).sum()
 
-    to_drop = df.index[df.max(axis=1) < smk.params.plotting["costs_threshold"]]
+    to_drop = df.index[df.max(axis=1) < snakemake.params.plotting["costs_threshold"]]
 
     logger.info(
-        f"Dropping technology with costs below {smk.params['plotting']['costs_threshold']} EUR billion per year"
+        f"Dropping technology with costs below {snakemake.params['plotting']['costs_threshold']} EUR billion per year"
     )
     logger.debug(df.loc[to_drop])
 
@@ -106,12 +101,7 @@ def plot_costs(smk, n_header):
 
     # new_columns = df.sum().sort_values().index
 
-    tech_colors = extend_tech_keys(
-        smk.params.plotting["tech_colors"],
-        smk.params.plotting["nice_names"],
-    )
-
-    check_tech_colors(tech_colors, new_index)
+    check_tech_colors(snakemake.params.plotting["tech_colors"], new_index)
 
     fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -119,7 +109,7 @@ def plot_costs(smk, n_header):
         kind="bar",
         ax=ax,
         stacked=True,
-        color=[tech_colors[i] for i in new_index],
+        color=[snakemake.params.plotting["tech_colors"][i] for i in new_index],
     )
 
     handles, labels = ax.get_legend_handles_labels()
@@ -127,7 +117,7 @@ def plot_costs(smk, n_header):
     handles.reverse()
     labels.reverse()
 
-    ax.set_ylim([0, smk.params.plotting["costs_max"]])
+    ax.set_ylim([0, snakemake.params.plotting["costs_max"]])
 
     ax.set_ylabel("System Cost [EUR billion per year]")
 
@@ -139,13 +129,13 @@ def plot_costs(smk, n_header):
         handles, labels, ncol=1, loc="upper left", bbox_to_anchor=[1, 1], frameon=False
     )
 
-    fig.savefig(smk.output.costs, bbox_inches="tight")
+    fig.savefig(snakemake.output.costs, bbox_inches="tight")
     plt.close(fig)
 
 
-def plot_energy(smk, n_header):
+def plot_energy(snakemake, n_header):
     energy_df = pd.read_csv(
-        smk.input.energy, index_col=list(range(2)), header=list(range(n_header))
+        snakemake.input.energy, index_col=list(range(2)), header=list(range(n_header))
     )
 
     df = energy_df.groupby("carrier").sum()
@@ -155,10 +145,12 @@ def plot_energy(smk, n_header):
 
     df = df.groupby(df.index.map(rename_techs)).sum()
 
-    to_drop = df.index[df.abs().max(axis=1) < smk.params.plotting["energy_threshold"]]
+    to_drop = df.index[
+        df.abs().max(axis=1) < snakemake.params.plotting["energy_threshold"]
+    ]
 
     logger.info(
-        f"Dropping all technology with energy consumption or production below {smk.params['plotting']['energy_threshold']} TWh/a"
+        f"Dropping all technology with energy consumption or production below {snakemake.params['plotting']['energy_threshold']} TWh/a"
     )
     logger.debug(df.loc[to_drop])
 
@@ -168,7 +160,7 @@ def plot_energy(smk, n_header):
 
     if df.empty:
         fig, ax = plt.subplots(figsize=(12, 8))
-        fig.savefig(smk.output.energy, bbox_inches="tight")
+        fig.savefig(snakemake.output.energy, bbox_inches="tight")
         plt.close(fig)
         return
 
@@ -178,12 +170,7 @@ def plot_energy(smk, n_header):
 
     # new_columns = df.columns.sort_values()
 
-    tech_colors = extend_tech_keys(
-        smk.params.plotting["tech_colors"],
-        smk.params.plotting["nice_names"],
-    )
-
-    check_tech_colors(tech_colors, new_index)
+    check_tech_colors(snakemake.params.plotting["tech_colors"], new_index)
 
     fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -193,7 +180,7 @@ def plot_energy(smk, n_header):
         kind="bar",
         ax=ax,
         stacked=True,
-        color=[tech_colors[i] for i in new_index],
+        color=[snakemake.params.plotting["tech_colors"][i] for i in new_index],
     )
 
     handles, labels = ax.get_legend_handles_labels()
@@ -203,8 +190,8 @@ def plot_energy(smk, n_header):
 
     ax.set_ylim(
         [
-            smk.params.plotting["energy_min"],
-            smk.params.plotting["energy_max"],
+            snakemake.params.plotting["energy_min"],
+            snakemake.params.plotting["energy_max"],
         ]
     )
 
@@ -218,19 +205,15 @@ def plot_energy(smk, n_header):
         handles, labels, ncol=1, loc="upper left", bbox_to_anchor=[1, 1], frameon=False
     )
 
-    fig.savefig(smk.output.energy, bbox_inches="tight")
+    fig.savefig(snakemake.output.energy, bbox_inches="tight")
     plt.close(fig)
 
 
-def plot_balances(smk, n_header):
-    tech_colors = extend_tech_keys(
-        smk.params.plotting["tech_colors"],
-        smk.params.plotting["nice_names"],
-    )
+def plot_balances(snakemake, n_header):
     co2_carriers = ["co2", "co2 stored", "process emissions"]
 
     balances_df = pd.read_csv(
-        smk.input.balances, index_col=list(range(3)), header=list(range(n_header))
+        snakemake.input.balances, index_col=list(range(3)), header=list(range(n_header))
     )
 
     balances = {k: df for k, df in balances_df.groupby("bus_carrier")}
@@ -245,12 +228,12 @@ def plot_balances(smk, n_header):
         df = df.groupby(df.index.map(rename_techs)).sum()
 
         to_drop = df.index[
-            df.abs().max(axis=1) < smk.params.plotting["energy_threshold"] / 10
+            df.abs().max(axis=1) < snakemake.params.plotting["energy_threshold"] / 10
         ]
 
         units = "MtCO2/a" if bus_carrier in co2_carriers else "TWh/a"
         logger.debug(
-            f"Dropping technology energy balance smaller than {smk.params['plotting']['energy_threshold'] / 10} {units}"
+            f"Dropping technology energy balance smaller than {snakemake.params['plotting']['energy_threshold'] / 10} {units}"
         )
         logger.debug(df.loc[to_drop])
 
@@ -269,7 +252,7 @@ def plot_balances(smk, n_header):
 
         new_columns = df.columns.sort_values()
 
-        check_tech_colors(tech_colors, new_index)
+        check_tech_colors(snakemake.params.plotting["tech_colors"], new_index)
 
         fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -277,7 +260,7 @@ def plot_balances(smk, n_header):
             kind="bar",
             ax=ax,
             stacked=True,
-            color=[tech_colors[i] for i in new_index],
+            color=[snakemake.params.plotting["tech_colors"][i] for i in new_index],
         )
 
         handles, labels = ax.get_legend_handles_labels()
@@ -304,7 +287,7 @@ def plot_balances(smk, n_header):
         )
 
         fig.savefig(
-            smk.output.balances[:-10] + bus_carrier + ".pdf", bbox_inches="tight"
+            snakemake.output.balances[:-10] + bus_carrier + ".pdf", bbox_inches="tight"
         )
         plt.close(fig)
 
