@@ -121,7 +121,7 @@ elif (CORINE_DATASET := dataset_version("corine"))["source"] in ["primary"]:
             logs("retrieve_corine_primary.log"),
         retries: 2
         resources:
-            mem_mb=2540,
+            mem_mb=1000,
         params:
             apikey=os.environ.get("CORINE_API_TOKEN", ""),
         message:
@@ -344,7 +344,7 @@ if (
             "logs/retrieve_bidding_zones_electricitymaps.log",
         retries: 2
         resources:
-            mem_mb=2540,
+            mem_mb=1000,
         run:
             copy2(input["geojson"], output["geojson"])
 
@@ -360,7 +360,7 @@ if (BIDDING_ZONES_ENTSOEPY_DATASET := dataset_version("bidding_zones_entsoepy"))
             "logs/retrieve_bidding_zones_entsoepy.log",
         retries: 2
         resources:
-            mem_mb=2540,
+            mem_mb=1000,
         run:
             import entsoe
             import geopandas as gpd
@@ -573,7 +573,7 @@ if (ENTSOE_DEMAND_DATA := dataset_version("entsoe_electricity_demand"))["source"
             "logs/retrieve_electricity_demand_entsoe_{country}.log",
         retries: 2
         resources:
-            mem_mb=2540,
+            mem_mb=2000,
         params:
             entsoe_token=os.environ.get("ENTSOE_API_TOKEN", ""),
         message:
@@ -1255,7 +1255,7 @@ if OSM_DATASET["source"] in ["archive"]:
             "logs/retrieve_osm_archive.log",
         threads: 1
         resources:
-            mem_mb=2540,
+            mem_mb=500,
         message:
             "Retrieving OSM archive data"
         run:
@@ -1297,7 +1297,7 @@ if OSM_DATASET_INCUMBENT["source"] in ["archive"] and OSM_DATASET_INCUMBENT[
             "logs/retrieve_osm_archive_incumbent.log",
         threads: 1
         resources:
-            mem_mb=2540,
+            mem_mb=500,
         message:
             "Retrieving OSM archive incumbent data"
         run:
@@ -1623,7 +1623,7 @@ if (MOBILITY_PROFILES_DATASET := dataset_version("mobility_profiles"))["source"]
             "benchmarks/retrieve_mobility_profiles"
         threads: 1
         resources:
-            mem_mb=2540,
+            mem_mb=1000,
         message:
             "Retrieving mobility profiles data"
         run:
