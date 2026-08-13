@@ -16,16 +16,15 @@ snapshots:
 
 clustering:
   temporal:
-    resolution_elec: false
     resolution_sector: 28seg  # 7*4
 
 scenario:
   clusters:
   - 5
   planning_horizons:
-  - 2025
   - 2030
-  - 2035
+  - 2040
+  - 2050
   mga:
     slack:
     - 0.05
