@@ -13,7 +13,7 @@ clustering:
     resolution_sector: 1460seg  # 365*4
 
 solving:
-  runtime: 6h  # 24h Max. allowed wallclocktime for project
+  runtime: 3h
 
 scenario:
   planning_horizons:
