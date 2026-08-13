@@ -20,9 +20,124 @@ scenario:
     slack:
     - 0.02
     - 0.05
-    - 0.1
+    - 0.10
     slack_initial_fraction: 0.5
+
+    # Regional settings
+    region:
+    - DE
+
+    # Reroute EU-wide commodity pools over one bus per country
+    regionalise_eu_buses:
+    - oil
+    - coal
+    - lignite
+    - methanol
+    - NH3
+    - uranium
+
+    # Objective functions
     alternative_objectives:
+
+      # Self-sufficiency: everything entering the region, from a neighbour over any
+      # connector, or from outside the model over the primary energy each country
+      # buys for itself. Both are needed since nationalising the commodity chains
+      # moved the fossil purchase off the interface links onto the generators.
+      min-imports:
+        weights:
+          varying:
+            Generator:
+              p:
+                "oil primary": 1
+                coal: 1
+                lignite: 1
+                gas: 1
+            Link:
+              p:
+                # ignored
+            Line:
+              s:
+                # ignored
+
+      min-imports_elec:
+        weights:
+          varying:
+            Link:
+              p:
+                DC: 1
+            Line:
+              s:
+                AC: 1
+
+      # Fossil imports as primary energy. Every country buys its own primary energy,
+      # so the generators are the import; gas is nodal and bought the same way. The
+      # oil interface is counted too, otherwise buying through a neighbour's hub
+      # would hide the import; coal, lignite and uranium have no hub.
+      min-imports_fossil:
+        weights:
+          varying:
+            Generator:
+              p:
+                "oil primary": 1
+                coal: 1
+                lignite: 1
+                gas: 1
+            Link:
+              p:
+                "oil interface": 1
+                "gas pipeline": 1
+
+      # Same carriers as electricity equivalents. Weights are the efficiency of
+      # each fuel's link into an AC bus (coal 0.356, lignite 0.330, oil 0.350,
+      # gas 0.570 via CCGT), taken as a fixed reference: they drift by 1-3 % over
+      # the horizons and coal has no link into AC left in 2035. Primary oil is
+      # weighted before refining, 0.350 * 0.949.
+      min-imports_fossil_el:
+        weights:
+          varying:
+            Generator:
+              p:
+                "oil primary": 0.332
+                coal: 0.356
+                lignite: 0.330
+                gas: 0.570
+            Link:
+              p:
+                "oil interface": 0.350
+                "gas pipeline": 0.570
+
+      # Synthetic fuel imports as primary energy. H2 is already nodal and crosses
+      # on its pipeline. Ammonia and methanol produced domestically leave over the
+      # same interface link, so Haber-Bosch and methanolisation net correctly.
+      min-imports_synfuel:
+        weights:
+          varying:
+            Link:
+              p:
+                "H2 pipeline": 1
+                "NH3 interface": 1
+                "methanol interface": 1
+
+      # Same carriers as electricity equivalents. H2 0.500 via fuel cell,
+      # methanol 0.405 via OCGT methanol; ammonia has no direct link into an AC
+      # bus, so it goes through the cracker first: 0.6849 * 0.500.
+      min-imports_synfuel_el:
+        weights:
+          varying:
+            Link:
+              p:
+                "H2 pipeline": 0.500
+                "NH3 interface": 0.342
+                "methanol interface": 0.405
+
+
+      # Costs
+      # objective function is split
+      min-capex:
+      max-capex:
+      min-opex:
+      max-opex:
+
       # Technology focus
       min-tech_H2_El:
         weights:
@@ -36,18 +151,3 @@ scenario:
             Link:
               p:
                 "H2 Electrolysis": 1
-
-      # Autarky
-      min-import_energy:
-        weights:
-          varying:
-            Link:
-              p:
-                # ignored
-            Line:
-              # In PyPSA optimization problems, AC is linearised in a way,
-              # that s represents the active power, not the apparent power.
-              s:
-                # ignored
-    region:
-    - DE
