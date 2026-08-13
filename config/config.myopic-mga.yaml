@@ -8,6 +8,13 @@ run:
 
 foresight: myopic
 
+clustering:
+  temporal:
+    resolution_sector: 1460seg  # 365*4
+
+solving:
+  runtime: 6h  # 24h Max. allowed wallclocktime for project
+
 scenario:
   planning_horizons:
   - 2025
@@ -151,3 +158,9 @@ scenario:
             Link:
               p:
                 "H2 Electrolysis": 1
+
+sector:
+  regional_coal_demand: true
+  co2_network: false
+  methanol:
+    regional_methanol_demand: true
