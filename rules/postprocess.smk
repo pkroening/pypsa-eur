@@ -544,7 +544,7 @@ if "mga" in config["scenario"]:
         localrule: True
         threads: 1
         resources:
-            mem_mb=2000,
+            mem_mb=4000,
         params:
             mga=config_provider("scenario", "mga"),
             save_path=RESULTS + "graphs_mga/",
