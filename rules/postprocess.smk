@@ -588,11 +588,11 @@ if "mga" in config["scenario"]:
         input:
             rules.make_all_summaries.input,
             rules.plot_all_summaries.input,
-            # rules.plot_balance_maps.input,
-            # rules.plot_all_balance_timeseries.input,
-            # rules.plot_all_heatmap_timeseries.input,
-            # rules.plot_all_interactive_bus_balance.input,
-            # expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
+            rules.plot_balance_maps.input,
+            rules.plot_all_balance_timeseries.input,
+            rules.plot_all_heatmap_timeseries.input,
+            rules.plot_all_interactive_bus_balance.input,
+            expand(RESULTS + "graphs_mga/pathways", run=config["run"]["name"]),
         message:
             "Collecting all near optimal results"
 
