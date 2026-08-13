@@ -12,16 +12,12 @@ import pandas as pd
 from scripts._helpers import configure_logging, set_scenario_config
 
 logger = logging.getLogger(__name__)
+plt.switch_backend("Agg")
 plt.style.use("bmh")
 
 SCENARIO_LEVELS = ["cluster", "opt", "sector_opt", "alternative_objectives", "slack"]
-DEFAULT_LEGEND = {"loc": "center left", "bbox_to_anchor": (1, 0.5)}
-STACKED_LEGEND = {
-    "loc": "upper center",
-    "bbox_to_anchor": (0.5, -0.15),
-    "ncol": 6,
-    "fontsize": "small",
-}
+DEFAULT_LEGEND = {"loc": "outside right center"}
+STACKED_LEGEND = {"loc": "outside lower center", "ncol": 6, "fontsize": "small"}
 
 
 def _clean_columns(columns: pd.MultiIndex) -> pd.MultiIndex:
@@ -65,28 +61,46 @@ def _by_scenario(
     }
 
 
-def _row_subplots(n_rows: int):
-    fig, axes = plt.subplots(n_rows, figsize=(10, 5), sharex=True, layout="constrained")
+def _row_subplots(n_rows: int, figsize: tuple = (10, 5)):
+    fig, axes = plt.subplots(n_rows, figsize=figsize, sharex=True, layout="constrained")
     return fig, np.atleast_1d(axes)
+
+
+def _reset(figure: tuple):
+    """Figures are reused across technologies to avoid thousands of allocations."""
+    fig, axes = figure
+    for ax in axes:
+        ax.clear()
+    for legend in list(fig.legends):
+        legend.remove()
+    return fig, axes
 
 
 def _finalize(
     fig, axes, y_max, title, ylabel, save_dir, filename, legend=DEFAULT_LEGEND
 ):
     fig.suptitle(title)
-    fig.supxlabel("Time")
     fig.supylabel(ylabel)
+    axes[-1].set_xlabel("Time")
+
+    handles, labels = [], []
     for ax in axes:
-        ax.legend(**legend)
+        for handle, label in zip(*ax.get_legend_handles_labels()):
+            if label not in labels:
+                handles.append(handle)
+                labels.append(label)
         if y_max > 0:
             ax.set_ylim(0, y_max * 1.1)
+    fig.legend(handles, labels, **legend)
+
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     fig.savefig(save_dir / filename)
-    plt.close(fig)
 
 
 def _plot_technology(
+    obj_figure,
+    slack_figure,
     x,
     y_default,
     y_mga,
@@ -99,8 +113,8 @@ def _plot_technology(
     filename,
 ):
     """One figure comparing objectives per slack, one comparing slacks per objective."""
-    fig_obj, axes_obj = _row_subplots(len(slacks))
-    fig_slack, axes_slack = _row_subplots(len(objectives))
+    fig_obj, axes_obj = _reset(obj_figure)
+    fig_slack, axes_slack = _reset(slack_figure)
 
     y_max = max(
         (y.max() for y in (*y_mga.values(), y_default) if y is not None), default=0
@@ -147,14 +161,14 @@ def _plot_technology(
     )
 
 
-def _plot_stacked(x, frame, labels, colors, title, ylabel, save_dir, filename):
+def _plot_stacked(figure, x, frame, labels, colors, title, ylabel, save_dir, filename):
     """Stacked breakdown over all technologies of a single scenario."""
+    fig, axes = _reset(figure)
     values = frame.to_numpy()
-    fig, ax = plt.subplots(figsize=(16, 9), layout="constrained")
-    ax.stackplot(x, values, labels=labels, colors=colors)
+    axes[0].stackplot(x, values, labels=labels, colors=colors)
     y_max = values.sum(axis=0).max() if len(values) else 0
     _finalize(
-        fig, [ax], y_max, title, ylabel, save_dir, filename, legend=STACKED_LEGEND
+        fig, axes, y_max, title, ylabel, save_dir, filename, legend=STACKED_LEGEND
     )
 
 
@@ -182,6 +196,10 @@ def _plot_pathways(
         return
     slack_range = max(float(s) for s in slacks)
 
+    obj_figure = _row_subplots(len(slacks))
+    slack_figure = _row_subplots(len(objectives))
+    stack_figure = _row_subplots(1, figsize=(16, 9)) if stacked else None
+
     for label, totals in quantities.items():
         scenarios = _by_scenario(totals, horizons)
         save_dir = f"{save_path}pathways/" + "/".join(filter(None, (prop, label)))
@@ -204,6 +222,8 @@ def _plot_pathways(
 
             for i, row in enumerate(totals.index):
                 _plot_technology(
+                    obj_figure,
+                    slack_figure,
                     x,
                     None if y_default is None else y_default[i],
                     {key: y[i] for key, y in y_mga.items()},
@@ -228,6 +248,7 @@ def _plot_pathways(
             )
             for (scenario, slack_label), frame in stacks.items():
                 _plot_stacked(
+                    stack_figure,
                     x,
                     frame,
                     stack_labels,
@@ -237,6 +258,9 @@ def _plot_pathways(
                     f"{save_dir}/stacked",
                     f"{run_str}-{scenario}_{slack_label}_{region_str}.png",
                 )
+
+    for fig, _ in filter(None, (obj_figure, slack_figure, stack_figure)):
+        plt.close(fig)
 
 
 def plot_capacities(file_path: str, n_header: int, region: tuple, save_path: str):
