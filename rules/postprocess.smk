@@ -536,7 +536,7 @@ if "mga" in config["scenario"]:
             nodal_costs=RESULTS + "csvs_mga/nodal_costs.csv",
             nodal_capacities=RESULTS + "csvs_mga/nodal_capacities.csv",
         output:
-            pathways=directory(RESULTS + "graphs_mga/pathways"),
+            pathways=directory(RESULTS + "pathways"),
         log:
             RESULTS + "logs/plot_pathways.log",
         benchmark:
@@ -547,7 +547,6 @@ if "mga" in config["scenario"]:
             mem_mb=4000,
         params:
             mga=config_provider("scenario", "mga"),
-            save_path=RESULTS + "graphs_mga/",
         message:
             "Plotting near optimal capacity and cost pathways"
         script:

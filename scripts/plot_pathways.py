@@ -103,7 +103,7 @@ def _reset(figure: tuple):
 
 
 def _finalize(
-    fig, axes, y_max, title, ylabel, save_dir, filename, legend=DEFAULT_LEGEND
+    fig, axes, y_max, title, ylabel, save_dir: Path, filename, legend=DEFAULT_LEGEND
 ):
     fig.suptitle(title)
     fig.supylabel(ylabel)
@@ -122,7 +122,6 @@ def _finalize(
         ax.tick_params(labelbottom=True)
         ax.set_xlabel("Time")
 
-    save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     fig.savefig(save_dir / filename)
 
@@ -138,7 +137,7 @@ def _plot_technology(
     slack_range,
     title,
     ylabel,
-    save_dir,
+    save_dir: Path,
     filename,
 ):
     """One figure comparing objectives per slack, one comparing slacks per objective."""
@@ -184,9 +183,9 @@ def _plot_technology(
                 zorder=2.01,
             )
 
-    _finalize(fig_obj, axes_obj, y_max, title, ylabel, f"{save_dir}/comp_obj", filename)
+    _finalize(fig_obj, axes_obj, y_max, title, ylabel, save_dir / "comp_obj", filename)
     _finalize(
-        fig_slack, axes_slack, y_max, title, ylabel, f"{save_dir}/comp_slack", filename
+        fig_slack, axes_slack, y_max, title, ylabel, save_dir / "comp_slack", filename
     )
 
 
@@ -205,7 +204,7 @@ def _plot_pathways(
     quantities: dict[str, pd.DataFrame],
     prop: str,
     region_str: str,
-    save_path: str,
+    save_path: Path,
     stacked: bool = False,
 ):
     """Plot the near optimal pathways of every quantity, keyed by its subdirectory."""
@@ -231,7 +230,7 @@ def _plot_pathways(
 
     for label, totals in quantities.items():
         scenarios = _by_scenario(totals, horizons)
-        save_dir = f"{save_path}pathways/" + "/".join(filter(None, (prop, label)))
+        save_dir = save_path / prop / label
         ylabel = " ".join(filter(None, (label, prop)))
         stack_labels = [" ".join(row) for row in totals.index]
         stack_colors = plt.cm.tab20(np.linspace(0, 1, len(totals)))
@@ -292,14 +291,14 @@ def _plot_pathways(
         plt.close(fig)
 
 
-def plot_capacities(file_path: str, n_header: int, region: tuple, save_path: str):
+def plot_capacities(file_path: str, n_header: int, region: tuple, save_path: Path):
     totals = _region_totals(
         file_path, n_header, 3, region, levels=["component", "carrier"]
     )
     _plot_pathways({"": totals}, "capacities", ",".join(region), save_path)
 
 
-def plot_costs(file_path: str, n_header: int, region: tuple, save_path: str):
+def plot_costs(file_path: str, n_header: int, region: tuple, save_path: Path):
     totals = _region_totals(
         file_path, n_header, 4, region, levels=["cost", "component", "carrier"]
     )
@@ -339,7 +338,7 @@ if __name__ == "__main__":
 
     n_header = 6
 
-    save_path = snakemake.params.save_path
+    save_path = Path(snakemake.output.pathways)
 
     plot_capacities(
         file_path=snakemake.input.nodal_capacities,
