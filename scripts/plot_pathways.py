@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import logging
-import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,429 +14,263 @@ from scripts._helpers import configure_logging, set_scenario_config
 logger = logging.getLogger(__name__)
 plt.style.use("bmh")
 
-
-def _load_and_clean(file_path, n_header, n_index):
-    df = pd.read_csv(
-        file_path, index_col=list(range(n_index)), header=list(range(n_header))
-    )
-
-    # Handle empty column values from cost optimal solution
-    for i, columns in enumerate(df.columns.levels):
-        columns_new = ["" if "Unnamed" in c else c for c in columns.tolist()]
-        df = df.rename(columns=dict(zip(columns.tolist(), columns_new)), level=i)
-
-    return df
+SCENARIO_LEVELS = ["cluster", "opt", "sector_opt", "alternative_objectives", "slack"]
+DEFAULT_LEGEND = {"loc": "center left", "bbox_to_anchor": (1, 0.5)}
+STACKED_LEGEND = {
+    "loc": "upper center",
+    "bbox_to_anchor": (0.5, -0.15),
+    "ncol": 6,
+    "fontsize": "small",
+}
 
 
-def _get_levels(df):
-    return (
-        df.columns.get_level_values(level=0).unique(),  # clusters
-        df.columns.get_level_values(level=1).unique(),  # opts
-        df.columns.get_level_values(level=2).unique(),  # sector_opts
-        df.columns.get_level_values(level=3).unique(),  # planning_horizons
-        df.columns.get_level_values(level=4).unique(),  # objectives
-        df.columns.get_level_values(level=5).unique(),  # slacks
+def _clean_columns(columns: pd.MultiIndex) -> pd.MultiIndex:
+    """Empty header cells of the cost optimal solution are read as 'Unnamed: ...'."""
+    return pd.MultiIndex.from_tuples(
+        [
+            tuple("" if "Unnamed" in level else level for level in col)
+            for col in columns
+        ],
+        names=columns.names,
     )
 
 
-def _unique_components(df, region):
-    """Yield each (component, carrier) once, for rows located in `region`."""
-    plotted = set()
-    for row in df.index:
-        component, location, carrier = row[-3:]
-        if location.startswith(region) and (component, carrier) not in plotted:
-            plotted.add((component, carrier))
-            yield component, carrier
+def _region_totals(
+    file_path: str, n_header: int, n_index: int, region: tuple, levels: list[str]
+) -> pd.DataFrame:
+    """Sum the rows located in `region` per `levels`, reading the csv in chunks."""
+    chunks = pd.read_csv(
+        file_path,
+        index_col=list(range(n_index)),
+        header=list(range(n_header)),
+    )
+    totals = (
+        pd.concat(
+            chunk[chunk.index.get_level_values("location").str.startswith(region)]
+            .groupby(level=levels, sort=False)
+            .sum()
+            for chunk in chunks
+        )
+        .groupby(level=levels, sort=False)
+        .sum()
+    )
+    totals.columns = _clean_columns(totals.columns)
+
+    # Technologies absent from the region would only yield flat zero lines
+    return totals[(totals != 0).any(axis="columns")]
 
 
-def _row_subplots(n_rows):
+def _by_scenario(
+    totals: pd.DataFrame, horizons: list[str]
+) -> dict[tuple, pd.DataFrame]:
+    """Split the columns into one technology x horizon frame per scenario."""
+    return {
+        key: sub.droplevel(SCENARIO_LEVELS).reindex(horizons).T
+        for key, sub in totals.T.groupby(level=SCENARIO_LEVELS, sort=False)
+    }
+
+
+def _row_subplots(n_rows: int):
     fig, axes = plt.subplots(n_rows, figsize=(10, 5), sharex=True, layout="constrained")
     return fig, np.atleast_1d(axes)
 
 
-def _finalize(fig, axes, y_max, title, ylabel, save_dir, filename, legend_kwargs=None):
-    legend_kwargs = legend_kwargs or {"loc": "center left", "bbox_to_anchor": (1, 0.5)}
+def _finalize(
+    fig, axes, y_max, title, ylabel, save_dir, filename, legend=DEFAULT_LEGEND
+):
     fig.suptitle(title)
     fig.supxlabel("Time")
     fig.supylabel(ylabel)
-    for ax in axes.flatten():
-        ax.legend(**legend_kwargs)
+    for ax in axes:
+        ax.legend(**legend)
         if y_max > 0:
             ax.set_ylim(0, y_max * 1.1)
-    os.makedirs(save_dir, exist_ok=True)
-    fig.savefig(f"{save_dir}/{filename}")
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    fig.savefig(save_dir / filename)
     plt.close(fig)
 
 
-def plot_capacities(file_path, n_header, region: tuple, save_path):
-    df = _load_and_clean(file_path, n_header, n_index=3)
+def _plot_technology(
+    x,
+    y_default,
+    y_mga,
+    objectives,
+    slacks,
+    slack_range,
+    title,
+    ylabel,
+    save_dir,
+    filename,
+):
+    """One figure comparing objectives per slack, one comparing slacks per objective."""
+    fig_obj, axes_obj = _row_subplots(len(slacks))
+    fig_slack, axes_slack = _row_subplots(len(objectives))
 
-    clusters, opts, sector_opts, planning_horizons, objectives, slacks = _get_levels(df)
+    y_max = max(
+        (y.max() for y in (*y_mga.values(), y_default) if y is not None), default=0
+    )
 
-    # Plotting
-    region_str = ",".join(region)
-    prop = file_path.split("nodal_")[1].removesuffix(".csv")
-    slack_range = max([float(s) for s in slacks if s])
+    for ax, slack in zip(axes_obj, slacks):
+        ax.set_ylabel(f"s={float(slack):.0%}")
+    for ax, objective in zip(axes_slack, objectives):
+        ax.set_ylabel(objective)
 
-    # Iterate
-    idx = pd.IndexSlice
-    for cluster in clusters:
-        for opt in opts:
-            for sector_opt in sector_opts:
-                for component, carrier in _unique_components(df, region):
-                    # One figure to compare slacks/objective function in each subfigure
-                    # -1 due to the default being plottet everywhere
-                    fig_sla, axes_sla = _row_subplots(len(slacks) - 1)
-                    fig_obj, axes_obj = _row_subplots(len(objectives) - 1)
+    for (objective, slack), y in y_mga.items():
+        axes_obj[slacks.index(slack)].plot(x, y, marker="x", label=objective)
 
-                    # Initialize max val for scaling
-                    y_max = 0
+        # Darker/more opaque and on top the closer the slack is to cost optimal
+        share = float(slack) / slack_range
+        color = plt.cm.Oranges(0.85 - 0.5 * share)
+        zorder = 2 + 0.009 * (1 - share)
 
-                    for alt_obj in enumerate(objectives):
-                        for slack in enumerate(slacks):
-                            # Get optimization type
-                            default = bool(not alt_obj[1] and not slack[1])
-                            mga = bool(alt_obj[1] and slack[1])
+        ax = axes_slack[objectives.index(objective)]
+        ax.fill_between(x, 0, y, color=color, alpha=0.4, zorder=zorder)
+        ax.plot(
+            x,
+            y,
+            marker="x",
+            color=color,
+            label=f"s={float(slack):.0%}",
+            zorder=zorder,
+        )
 
-                            if default or mga:
-                                # Get x
-                                x = planning_horizons
+    if y_default is not None:
+        for ax in (*axes_obj, *axes_slack):
+            ax.plot(
+                x,
+                y_default,
+                marker="x",
+                color="black",
+                label="cost optimal",
+                zorder=2.01,
+            )
 
-                                # Get y
-                                y = df.loc[
-                                    idx[component, :, carrier],
-                                    idx[
-                                        cluster,
-                                        opt,
-                                        sector_opt,
-                                        x,
-                                        alt_obj[1],
-                                        slack[1],
-                                    ],
-                                ]
-                                y = y[
-                                    y.index.get_level_values(
-                                        level="location"
-                                    ).str.startswith(region)
-                                ].sum(axis="index")
-
-                                # Update y_max
-                                y_max = max(y_max, y.max())
-
-                                # Plot
-                                if default:
-                                    for ax in axes_sla.flatten():
-                                        ax.plot(
-                                            x,
-                                            y,
-                                            marker="x",
-                                            color="black",
-                                            label="cost optimal",
-                                            zorder=2.01,
-                                        )
-                                    for ax in axes_obj.flatten():
-                                        ax.plot(
-                                            x,
-                                            y,
-                                            marker="x",
-                                            color="black",
-                                            label="cost optimal",
-                                            zorder=2.01,
-                                        )
-                                elif mga:
-                                    axes_sla[slack[0]].set_ylabel(
-                                        f"s={float(slack[1]):.0%}"
-                                    )
-                                    axes_sla[slack[0]].plot(
-                                        x, y, marker="x", label=alt_obj[1]
-                                    )
-
-                                    # Darker/more opaque and on top the closer the slack is to cost optimal
-                                    slack_val = float(slack[1])
-                                    color = plt.cm.Oranges(
-                                        0.85 - 0.5 * slack_val / slack_range
-                                    )
-                                    zorder = 2 + 0.01 * 0.9 * (
-                                        1 - slack_val / slack_range
-                                    )
-
-                                    axes_obj[alt_obj[0]].set_ylabel(alt_obj[1])
-                                    axes_obj[alt_obj[0]].fill_between(
-                                        x, 0, y, color=color, alpha=0.4, zorder=zorder
-                                    )
-                                    axes_obj[alt_obj[0]].plot(
-                                        x,
-                                        y,
-                                        marker="x",
-                                        color=color,
-                                        label=f"s={slack_val:.0%}",
-                                        zorder=zorder,
-                                    )
-
-                    # Save file
-                    filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.png"
-                    for subdir, view_fig, view_axes in [
-                        ("comp_obj", fig_sla, axes_sla),
-                        ("comp_slack", fig_obj, axes_obj),
-                    ]:
-                        path = f"{save_path}pathways/{prop}/{subdir}"
-                        _finalize(
-                            view_fig, view_axes, y_max, region_str, prop, path, filename
-                        )
+    _finalize(fig_obj, axes_obj, y_max, title, ylabel, f"{save_dir}/comp_obj", filename)
+    _finalize(
+        fig_slack, axes_slack, y_max, title, ylabel, f"{save_dir}/comp_slack", filename
+    )
 
 
-def plot_costs(file_path, n_header, region: tuple, save_path):
-    df = _load_and_clean(file_path, n_header, n_index=4)
+def _plot_stacked(x, frame, labels, colors, title, ylabel, save_dir, filename):
+    """Stacked breakdown over all technologies of a single scenario."""
+    values = frame.to_numpy()
+    fig, ax = plt.subplots(figsize=(16, 9), layout="constrained")
+    ax.stackplot(x, values, labels=labels, colors=colors)
+    y_max = values.sum(axis=0).max() if len(values) else 0
+    _finalize(
+        fig, [ax], y_max, title, ylabel, save_dir, filename, legend=STACKED_LEGEND
+    )
 
-    clusters, opts, sector_opts, planning_horizons, objectives, slacks = _get_levels(df)
 
-    # Plotting strings
-    region_str = ",".join(region)
-    prop = file_path.split("nodal_")[1].removesuffix(".csv")
-    slack_range = max([float(s) for s in slacks if s])
+def _plot_pathways(
+    quantities: dict[str, pd.DataFrame],
+    prop: str,
+    region_str: str,
+    save_path: str,
+    stacked: bool = False,
+):
+    """Plot the near optimal pathways of every quantity, keyed by its subdirectory."""
+    columns = next(iter(quantities.values())).columns
+    runs = columns.droplevel(
+        ["planning_horizon", "alternative_objectives", "slack"]
+    ).unique()
+    horizons = list(columns.get_level_values("planning_horizon").unique())
+    objectives = [
+        o for o in columns.get_level_values("alternative_objectives").unique() if o
+    ]
+    slacks = [s for s in columns.get_level_values("slack").unique() if s]
 
-    # Fixed component order/colors so the same component always gets the same color across stacked figures
-    components = list(_unique_components(df, region))
-    stacked_labels = [f"{component} {carrier}" for component, carrier in components]
-    stacked_colors = plt.cm.tab20(np.linspace(0, 1, len(components)))
+    if not objectives or not slacks:
+        logger.warning(f"No near optimal solutions found for {prop}, skipping plots.")
+        return
+    slack_range = max(float(s) for s in slacks)
 
-    # Iterate
-    idx = pd.IndexSlice
-    for cluster in clusters:
-        for opt in opts:
-            for sector_opt in sector_opts:
-                # Per-component cost trajectories, keyed by (alt_obj, slack) scenario, for the stacked figures below
-                stack_cap = {}
-                stack_mar = {}
-                stack_tot = {}
+    for label, totals in quantities.items():
+        scenarios = _by_scenario(totals, horizons)
+        save_dir = f"{save_path}pathways/" + "/".join(filter(None, (prop, label)))
+        ylabel = " ".join(filter(None, (label, prop)))
+        stack_labels = [" ".join(row) for row in totals.index]
+        stack_colors = plt.cm.tab20(np.linspace(0, 1, len(totals)))
 
-                for component, carrier in components:
-                    # One figure to compare slacks/objective function in each subfigure
-                    # -1 due to the default being plottet everywhere
-                    fig_cap_sla, axes_cap_sla = _row_subplots(len(slacks) - 1)
-                    fig_mar_sla, axes_mar_sla = _row_subplots(len(slacks) - 1)
-                    fig_tot_sla, axes_tot_sla = _row_subplots(len(slacks) - 1)
+        for run in runs:
+            run_str = "_".join(run)
+            default = scenarios.get((*run, "", ""))
+            mga = {
+                (objective, slack): scenarios[(*run, objective, slack)]
+                for objective in objectives
+                for slack in slacks
+                if (*run, objective, slack) in scenarios
+            }
 
-                    fig_cap_obj, axes_cap_obj = _row_subplots(len(objectives) - 1)
-                    fig_mar_obj, axes_mar_obj = _row_subplots(len(objectives) - 1)
-                    fig_tot_obj, axes_tot_obj = _row_subplots(len(objectives) - 1)
+            y_default = None if default is None else default.to_numpy()
+            y_mga = {key: frame.to_numpy() for key, frame in mga.items()}
 
-                    # Initialize max val for scaling
-                    y_cap_max = 0
-                    y_mar_max = 0
-                    y_tot_max = 0
+            for i, row in enumerate(totals.index):
+                _plot_technology(
+                    horizons,
+                    None if y_default is None else y_default[i],
+                    {key: y[i] for key, y in y_mga.items()},
+                    objectives,
+                    slacks,
+                    slack_range,
+                    region_str,
+                    ylabel,
+                    save_dir,
+                    f"{run_str}-{'_'.join(row)}_{region_str}.png",
+                )
 
-                    for alt_obj in enumerate(objectives):
-                        for slack in enumerate(slacks):
-                            default = bool(not alt_obj[1] and not slack[1])
-                            mga = bool(alt_obj[1] and slack[1])
+            if not stacked:
+                continue
 
-                            if default or mga:
-                                # Get x
-                                x = planning_horizons
+            stacks = {} if default is None else {("cost-optimal", "s0"): default}
+            stacks.update(
+                {
+                    (objective, f"s{slack}"): frame
+                    for (objective, slack), frame in mga.items()
+                }
+            )
+            for (scenario, slack_label), frame in stacks.items():
+                _plot_stacked(
+                    horizons,
+                    frame,
+                    stack_labels,
+                    stack_colors,
+                    f"{region_str} - {scenario} {slack_label}",
+                    ylabel,
+                    f"{save_dir}/stacked",
+                    f"{run_str}-{scenario}_{slack_label}_{region_str}.png",
+                )
 
-                                # Get y (try-except because some components might not have these costs)
-                                try:
-                                    y_cap = df.loc[
-                                        idx["capital", component, :, carrier],
-                                        idx[
-                                            cluster,
-                                            opt,
-                                            sector_opt,
-                                            x,
-                                            alt_obj[1],
-                                            slack[1],
-                                        ],
-                                    ]
-                                    y_cap = y_cap[
-                                        y_cap.index.get_level_values(
-                                            level="location"
-                                        ).str.startswith(region)
-                                    ].sum(axis="index")
-                                except KeyError:
-                                    y_cap = np.zeros(len(x))
 
-                                try:
-                                    y_mar = df.loc[
-                                        idx["marginal", component, :, carrier],
-                                        idx[
-                                            cluster,
-                                            opt,
-                                            sector_opt,
-                                            x,
-                                            alt_obj[1],
-                                            slack[1],
-                                        ],
-                                    ]
-                                    y_mar = y_mar[
-                                        y_mar.index.get_level_values(
-                                            level="location"
-                                        ).str.startswith(region)
-                                    ].sum(axis="index")
-                                except KeyError:
-                                    y_mar = np.zeros(len(x))
-                                y_tot = y_cap + y_mar
+def plot_capacities(file_path: str, n_header: int, region: tuple, save_path: str):
+    totals = _region_totals(
+        file_path, n_header, 3, region, levels=["component", "carrier"]
+    )
+    _plot_pathways({"": totals}, "capacities", ",".join(region), save_path)
 
-                                # Update y_max
-                                y_cap_max = max(y_cap_max, y_cap.max())
-                                y_mar_max = max(y_mar_max, y_mar.max())
-                                y_tot_max = max(y_tot_max, y_tot.max())
 
-                                # Append trajectories for the stacked figures, keyed by scenario
-                                scenario_key = (alt_obj[1], slack[1])
-                                stack_cap.setdefault(scenario_key, []).append(
-                                    np.asarray(y_cap, dtype=float)
-                                )
-                                stack_mar.setdefault(scenario_key, []).append(
-                                    np.asarray(y_mar, dtype=float)
-                                )
-                                stack_tot.setdefault(scenario_key, []).append(
-                                    np.asarray(y_tot, dtype=float)
-                                )
+def plot_costs(file_path: str, n_header: int, region: tuple, save_path: str):
+    totals = _region_totals(
+        file_path, n_header, 4, region, levels=["cost", "component", "carrier"]
+    )
 
-                                if default:
-                                    for axes, y in [
-                                        (axes_cap_sla, y_cap),
-                                        (axes_mar_sla, y_mar),
-                                        (axes_tot_sla, y_tot),
-                                    ]:
-                                        for ax in axes.flatten():
-                                            ax.plot(
-                                                x,
-                                                y,
-                                                marker="x",
-                                                color="black",
-                                                label="cost optimal",
-                                                zorder=2.01,
-                                            )
-                                    for axes, y in [
-                                        (axes_cap_obj, y_cap),
-                                        (axes_mar_obj, y_mar),
-                                        (axes_tot_obj, y_tot),
-                                    ]:
-                                        for ax in axes.flatten():
-                                            ax.plot(
-                                                x,
-                                                y,
-                                                marker="x",
-                                                color="black",
-                                                label="cost optimal",
-                                                zorder=2.01,
-                                            )
-                                elif mga:
-                                    for axes, y in [
-                                        (axes_cap_sla, y_cap),
-                                        (axes_mar_sla, y_mar),
-                                        (axes_tot_sla, y_tot),
-                                    ]:
-                                        axes[slack[0]].set_ylabel(
-                                            f"s={float(slack[1]):.0%}"
-                                        )
-                                        axes[slack[0]].plot(
-                                            x, y, marker="x", label=alt_obj[1]
-                                        )
+    # Not every technology has both cost types
+    rows = totals.droplevel("cost").index.unique()
+    capital, marginal = (
+        totals[totals.index.get_level_values("cost") == cost]
+        .droplevel("cost")
+        .reindex(rows, fill_value=0.0)
+        for cost in ("capital", "marginal")
+    )
 
-                                    # Darker/more opaque and on top the closer the slack is to cost optimal
-                                    slack_val = float(slack[1])
-                                    color = plt.cm.Oranges(
-                                        0.85 - 0.5 * slack_val / slack_range
-                                    )
-                                    zorder = 2 + 0.01 * 0.9 * (
-                                        1 - slack_val / slack_range
-                                    )
-
-                                    for axes, y in [
-                                        (axes_cap_obj, y_cap),
-                                        (axes_mar_obj, y_mar),
-                                        (axes_tot_obj, y_tot),
-                                    ]:
-                                        axes[alt_obj[0]].set_ylabel(alt_obj[1])
-                                        axes[alt_obj[0]].fill_between(
-                                            x,
-                                            0,
-                                            y,
-                                            color=color,
-                                            alpha=0.4,
-                                            zorder=zorder,
-                                        )
-                                        axes[alt_obj[0]].plot(
-                                            x,
-                                            y,
-                                            marker="x",
-                                            color=color,
-                                            label=f"s={slack_val:.0%}",
-                                            zorder=zorder,
-                                        )
-
-                    filename = f"{cluster}_{opt}_{sector_opt}-{component}_{carrier}_{region_str}.png"
-                    for subdir, fig, axes, y_max, n in [
-                        ("comp_obj", fig_cap_sla, axes_cap_sla, y_cap_max, "capital"),
-                        ("comp_obj", fig_mar_sla, axes_mar_sla, y_mar_max, "marginal"),
-                        ("comp_obj", fig_tot_sla, axes_tot_sla, y_tot_max, "total"),
-                        ("comp_slack", fig_cap_obj, axes_cap_obj, y_cap_max, "capital"),
-                        (
-                            "comp_slack",
-                            fig_mar_obj,
-                            axes_mar_obj,
-                            y_mar_max,
-                            "marginal",
-                        ),
-                        ("comp_slack", fig_tot_obj, axes_tot_obj, y_tot_max, "total"),
-                    ]:
-                        path = f"{save_path}pathways/{prop}/{n}/{subdir}"
-                        _finalize(
-                            fig, axes, y_max, region_str, f"{n} {prop}", path, filename
-                        )
-
-                # Stacked cost breakdown across all components, one figure per slack x objective scenario
-                for alt_obj in enumerate(objectives):
-                    for slack in enumerate(slacks):
-                        default = bool(not alt_obj[1] and not slack[1])
-                        mga = bool(alt_obj[1] and slack[1])
-
-                        if not (default or mga):
-                            continue
-
-                        scenario_key = (alt_obj[1], slack[1])
-                        y_cap_by_comp = stack_cap[scenario_key]
-                        y_mar_by_comp = stack_mar[scenario_key]
-                        y_tot_by_comp = stack_tot[scenario_key]
-
-                        scenario_label = alt_obj[1] if alt_obj[1] else "cost-optimal"
-                        slack_label = f"s{slack[1]}" if slack[1] else "s0"
-                        title = f"{region_str} - {scenario_label} {slack_label}"
-                        filename = f"{cluster}_{opt}_{sector_opt}-{scenario_label}_{slack_label}_{region_str}.png"
-
-                        x = planning_horizons
-                        for name, ys in [
-                            ("capital", y_cap_by_comp),
-                            ("marginal", y_mar_by_comp),
-                            ("total", y_tot_by_comp),
-                        ]:
-                            fig, ax = plt.subplots(
-                                figsize=(16, 9), layout="constrained"
-                            )
-                            ax.stackplot(
-                                x, *ys, labels=stacked_labels, colors=stacked_colors
-                            )
-                            y_max = np.sum(ys, axis=0).max()
-                            path = f"{save_path}pathways/{prop}/{name}/stacked"
-                            legend_kwargs = {
-                                "loc": "upper center",
-                                "bbox_to_anchor": (0.5, -0.15),
-                                "ncol": 6,
-                                "fontsize": "small",
-                            }
-                            _finalize(
-                                fig,
-                                np.atleast_1d(ax),
-                                y_max,
-                                title,
-                                f"{name} {prop}",
-                                path,
-                                filename,
-                                legend_kwargs=legend_kwargs,
-                            )
+    _plot_pathways(
+        {"capital": capital, "marginal": marginal, "total": capital + marginal},
+        "costs",
+        ",".join(region),
+        save_path,
+        stacked=True,
+    )
 
 
 if __name__ == "__main__":

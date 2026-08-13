@@ -542,9 +542,9 @@ if "mga" in config["scenario"]:
         benchmark:
             RESULTS + "benchmarks/plot_pathways"
         localrule: True
-        threads: 2
+        threads: 1
         resources:
-            mem_mb=10000,
+            mem_mb=2000,
         params:
             mga=config_provider("scenario", "mga"),
             save_path=RESULTS + "graphs_mga/",
