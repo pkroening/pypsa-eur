@@ -688,6 +688,7 @@ STATISTICS_BARPLOTS = [
     "capital_expenditure",
     "operational_expenditure",
     "curtailment",
+    "supply",
     "withdrawal",
     "market_value",
 ]
