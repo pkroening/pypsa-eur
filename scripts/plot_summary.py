@@ -513,13 +513,13 @@ if __name__ == "__main__":
     configure_logging(snakemake)
     set_scenario_config(snakemake)
 
-    n_header = snakemake.params.get("n_header", 3)
+    n_header = 3
 
-    plot_costs(snakemake, n_header)
+    plot_costs()
 
-    plot_energy(snakemake, n_header)
+    plot_energy()
 
-    plot_balances(snakemake, n_header)
+    plot_balances()
 
     co2_budget = snakemake.params["co2_budget"]
     if (
