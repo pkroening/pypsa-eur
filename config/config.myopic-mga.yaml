@@ -141,9 +141,9 @@ scenario:
       # Costs
       # objective function is split
       min-capex:
-      max-capex:
+      # max-capex:
       min-opex:
-      max-opex:
+      # max-opex:
 
       # Technology focus
       min-tech_H2_El:
