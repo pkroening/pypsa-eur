@@ -63,32 +63,6 @@ scripts = script_path_provider(PROJ_DIR)
 RESULTS = "results/" + RDIR
 workflow.default_target = config["run"]["default_target_rule"]
 
-MAIL = False
-
-
-onstart:
-    print("Workflow started.")
-    if MAIL:
-        shell(
-            "mail -s 'PyPSA-Eur: Workflow started' peter.kroening@rwth-aachen.de < {log}"
-        )
-
-
-onsuccess:
-    print("Workflow finished, no error.")
-    if MAIL:
-        shell(
-            "mail -s 'PyPSA-Eur: Workflow finished, no errors' peter.kroening@rwth-aachen.de < {log}"
-        )
-
-
-onerror:
-    print("Workflow got errors.")
-    if MAIL:
-        shell(
-            "mail -s 'PyPSA-Eur: Workflow error(s) occurred' peter.kroening@rwth-aachen.de < {log}"
-        )
-
 
 localrules:
     purge,
