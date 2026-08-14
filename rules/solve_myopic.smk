@@ -137,7 +137,7 @@ rule solve_sector_network_myopic:
         shadow_config
     threads: solver_threads
     resources:
-        mem_mb=get_memory(config_provider("solving", "mem_mb"), "c23mm"),
+        mem_mb=config_provider("solving", "mem_mb"),
         runtime=config_provider("solving", "runtime", default="6h"),
         attempt=lambda w, attempt: attempt,
     params:
@@ -191,7 +191,7 @@ rule solve_sector_network_myopic_mga:
         shadow_config
     threads: solver_threads
     resources:
-        mem_mb=get_memory(config_provider("solving", "mem_mb"), "c23mm"),
+        mem_mb=config_provider("solving", "mem_mb"),
         runtime=config_provider("solving", "runtime", default="1d"),
         attempt=lambda w, attempt: attempt,
     params:

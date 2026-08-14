@@ -166,42 +166,6 @@ def memory(w):
         return int(factor * (10000 + 195 * int(w.clusters)))
 
 
-def get_memory(base_memory: int | partial, partition: str = "c23ms"):
-    # Claix: default value and the recommended maximum for #SBATCH --mem-per-cpu
-    if partition == "c23ms":
-        mem_per_core = 2540  # MiB
-    elif partition == "c23mm":
-        mem_per_core = 5210  # MiB
-    else:
-        raise ValueError(
-            f"Partition {partition} is not supportet for function get_memory()."
-        )
-
-    def mem(wildcards, threads, attempt):
-        # check type
-        if isinstance(base_memory, partial):
-            mem_b = base_memory(wildcards)
-        elif isinstance(base_memory, int):
-            mem_b = base_memory
-        else:
-            raise ValueError(
-                f"The agument base_memory is expected to be either an int or a partial, but it's {type(base_memory)}."
-            )
-
-        # base: round up on multiple of cluster max mem_per_core
-        mem_b = mem_per_core * (int(mem_b / mem_per_core) + (mem_b % mem_per_core > 0))
-
-        # cpus: cpus-per-task is equivalent to threads in Snakemake
-        mem_t = mem_per_core * threads
-
-        # attempt (starting from 1): increase linearly
-        mem_a = (attempt - 0.4) * max(mem_b, mem_t)
-
-        return max(mem_b, mem_t, mem_a)
-
-    return mem
-
-
 def input_custom_extra_functionality(w):
     path = config_provider(
         "solving", "options", "custom_extra_functionality", default=False
