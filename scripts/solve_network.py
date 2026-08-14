@@ -1509,12 +1509,6 @@ if __name__ == "__main__":
     solve_opts = snakemake.params.solving["options"]
     cf_solving = snakemake.params.solving["options"]
 
-    # On retries use numerical solver option
-    if getattr(snakemake.resources, "attempt", 1) > 1:
-        snakemake.params.solving["solver"]["name"] = "gurobi"
-        snakemake.params.solving["solver"]["options"] = "gurobi-numeric-focus"
-        logger.info("Switched solver options to 'gurobi-numeric-focus'.")
-
     np.random.seed(solve_opts.get("seed", 123))
 
     # Load network
