@@ -9,12 +9,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-
-try:
-    from numpy import trapezoid
-except ImportError:
-    # before numpy 2.0
-    from numpy import trapz as trapezoid
+from numpy import trapezoid
 
 from scripts._helpers import configure_logging, set_scenario_config
 
