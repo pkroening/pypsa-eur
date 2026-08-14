@@ -100,9 +100,7 @@ if __name__ == "__main__":
         for opt in snakemake.params.scenario["opts"]
         for sector_opt in snakemake.params.scenario["sector_opts"]
         for planning_horizon in snakemake.params.scenario["planning_horizons"]
-        for alternative_objectives in snakemake.params.mga[
-            "alternative_objectives"
-        ].keys()
+        for alternative_objectives in snakemake.params.mga["alternative_objectives"]
         for slack in snakemake.params.mga["slack"]
     }
     # Networks default
