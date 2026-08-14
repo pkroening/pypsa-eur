@@ -100,24 +100,21 @@ rule solve_sector_networks_perfect:
         "Collecting solved sector-coupled network files with perfect foresight"
 
 
-def mga_suffixes():
-    """
-    Filename suffixes of the near optimal solutions, including the empty suffix
-    of the cost optimal solution.
-    """
-    if "mga" not in config["scenario"]:
-        return [""]
-
-    mga = config["scenario"]["mga"]
-    return [""] + [
-        f"_{alternative_objective}_{slack}"
-        for alternative_objective in mga["alternative_objectives"]
-        for slack in mga["slack"]
-    ]
-
-
 def scenario_wildcards():
-    return {k: v for k, v in config["scenario"].items() if k != "mga"}
+    swc = {k: v for k, v in config["scenario"].items() if k != "mga"}
+
+    swc["mga"] = [""]
+    if "mga" in config["scenario"]:
+        mga = config["scenario"]["mga"]
+        swc["mga"].extend(
+            [
+                f"_{alternative_objective}_{slack}"
+                for alternative_objective in mga["alternative_objectives"]
+                for slack in mga["slack"]
+            ]
+        )
+
+    return swc
 
 
 def balance_map_paths(kind, w):
@@ -133,7 +130,6 @@ def balance_map_paths(kind, w):
         **scenario_wildcards(),
         run=config["run"]["name"],
         carrier=config_provider("plotting", cfg_key, "bus_carriers")(w),
-        mga=mga_suffixes(),
     )
 
 
@@ -175,7 +171,6 @@ rule plot_all_balance_timeseries:
             + "graphics/balance_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
             **scenario_wildcards(),
             run=config["run"]["name"],
-            mga=mga_suffixes(),
         ),
     message:
         "Plotting energy balance time series"
@@ -188,7 +183,6 @@ rule plot_all_heatmap_timeseries:
             + "graphics/heatmap_timeseries/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
             **scenario_wildcards(),
             run=config["run"]["name"],
-            mga=mga_suffixes(),
         ),
     message:
         "Plotting heatmap time series"
@@ -201,7 +195,6 @@ rule plot_all_interactive_bus_balance:
             + "graphics/interactive_bus_balance/s_{clusters}_{opts}_{sector_opts}_{planning_horizons}{mga}",
             **scenario_wildcards(),
             run=config["run"]["name"],
-            mga=mga_suffixes(),
         ),
     message:
         "Plotting interactive bus balances"
